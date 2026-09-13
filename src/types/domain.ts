@@ -188,6 +188,14 @@ export interface PlaceSummary {
   usefulCount: number;
   notUsefulCount: number;
   distanceMeters?: number;
+  /**
+   * Null only if createdBy points at an account that no longer exists. On
+   * PlaceSummary (search results/cards) deliberately excludes reputationLevel
+   * — every account is "newcomer" until M4's reputation calculation exists
+   * for real, and showing a level that never changes would look like a
+   * broken leveling system rather than an honest one.
+   */
+  contributor: { username: string; displayName: string } | null;
 }
 
 export interface PlaceDetail extends PlaceSummary {
@@ -203,8 +211,6 @@ export interface PlaceDetail extends PlaceSummary {
   mapQuery: string;
   verificationCount: number;
   createdAt: string;
-  /** Null only if createdBy points at an account that no longer exists. */
-  contributor: { username: string; displayName: string } | null;
 }
 
 /**

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CategoryIcon } from "@/components/places/category-icon";
+import { ContributorAvatar } from "@/components/places/contributor-avatar";
 
 interface PlacePageProps {
   params: Promise<{ id: string }>;
@@ -101,13 +102,12 @@ export default async function PlacePage({ params }: PlacePageProps) {
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          {place.contributor ? (
-            <>Added by @{place.contributor.username}.</>
-          ) : (
-            "Added by the community."
-          )}
-        </p>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ContributorAvatar displayName={place.contributor?.displayName ?? "Community"} />
+          <span>
+            Added by {place.contributor ? `@${place.contributor.username}` : "the community"}.
+          </span>
+        </div>
       </div>
     </div>
   );

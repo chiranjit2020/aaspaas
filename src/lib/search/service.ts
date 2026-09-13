@@ -1,6 +1,8 @@
+import { ObjectId } from "mongodb";
 import type { PlaceDoc, PlaceSummary } from "@/types/domain";
 import { getPlacesCollection } from "@/lib/db/models/place";
-import { toPlaceSummary } from "@/lib/db/serialize";
+import { getUsersCollection } from "@/lib/db/models/user";
+import { toPlaceSummary, type Contributor } from "@/lib/db/serialize";
 import { getSearchContext } from "./context";
 import { parseQuery } from "./parseQuery";
 import { buildSearchPipeline, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./buildQuery";
@@ -58,8 +60,32 @@ export async function searchPlaces(params: SearchPlacesParams): Promise<SearchPl
   const hasMore = docs.length > limit;
   const pageDocs = hasMore ? docs.slice(0, limit) : docs;
 
+  // One batched query for the whole page's contributors, not one per place —
+  // a page is at most MAX_PAGE_SIZE places, so this stays a single round trip
+  // no matter how many of them share (or don't share) a creator.
+  const contributorIds = Array.from(
+    new Set(pageDocs.filter((d) => d.createdBy).map((d) => d.createdBy!.toHexString())),
+  );
+  const contributorsById = new Map<string, Contributor>();
+  if (contributorIds.length > 0) {
+    const users = await getUsersCollection();
+    const userDocs = await users
+      .find(
+        { _id: { $in: contributorIds.map((id) => new ObjectId(id)) } },
+        { projection: { username: 1, displayName: 1 } },
+      )
+      .toArray();
+    for (const u of userDocs) {
+      contributorsById.set(u._id.toHexString(), { username: u.username, displayName: u.displayName });
+    }
+  }
+
   const items = pageDocs.map((doc) =>
-    toPlaceSummary(doc, context.categoriesById.get(doc.categoryId.toHexString())),
+    toPlaceSummary(
+      doc,
+      context.categoriesById.get(doc.categoryId.toHexString()),
+      doc.createdBy ? (contributorsById.get(doc.createdBy.toHexString()) ?? null) : null,
+    ),
   );
 
   const last = pageDocs[pageDocs.length - 1];

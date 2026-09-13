@@ -3,6 +3,7 @@ import { MapPin, Phone, ThumbsUp } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CategoryIcon } from "./category-icon";
+import { ContributorAvatar } from "./contributor-avatar";
 import type { PlaceSummary } from "@/types/domain";
 
 export function PlaceCard({ place }: { place: PlaceSummary }) {
@@ -40,6 +41,12 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
                 {place.usefulCount}
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-1.5 pt-0.5 text-xs text-muted-foreground/80">
+            <ContributorAvatar displayName={place.contributor?.displayName ?? "Community"} />
+            <span>
+              Added by {place.contributor ? `@${place.contributor.username}` : "the community"}
+            </span>
           </div>
         </CardContent>
       </Card>

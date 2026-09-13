@@ -28,6 +28,7 @@ export function toCategorySummary(doc: CategoryDoc): CategorySummary {
 export function toPlaceSummary(
   doc: PlaceDoc,
   category: CategoryDoc | undefined,
+  contributor: Contributor | null,
 ): PlaceSummary {
   return {
     id: doc._id.toHexString(),
@@ -42,6 +43,7 @@ export function toPlaceSummary(
     phone: doc.phone,
     usefulCount: doc.usefulCount,
     notUsefulCount: doc.notUsefulCount,
+    contributor,
   };
 }
 
@@ -67,7 +69,7 @@ export function toPlaceDetail(
   contributor: Contributor | null,
 ): PlaceDetail {
   return {
-    ...toPlaceSummary(doc, category),
+    ...toPlaceSummary(doc, category, contributor),
     description: doc.description,
     address: doc.address,
     mapQuery: [doc.name, doc.address, doc.locality, doc.district]
@@ -75,6 +77,5 @@ export function toPlaceDetail(
       .join(", "),
     verificationCount: doc.verificationCount,
     createdAt: doc.createdAt.toISOString(),
-    contributor,
   };
 }
