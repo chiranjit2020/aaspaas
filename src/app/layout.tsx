@@ -23,6 +23,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: "dark",
+  themeColor: "#101010",
 };
 
 // Dark is the default (and, until a theme switcher exists, only) theme.

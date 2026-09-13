@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { searchPlaces } from "@/lib/search/service";
 import { getCategoriesCollection } from "@/lib/db/models/category";
 import { toCategorySummary } from "@/lib/db/serialize";
@@ -28,14 +27,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
       <div className="mb-10 flex flex-col items-center gap-4 text-center">
-        <Image
-          src="/brand/mascot.png"
-          alt=""
-          width={96}
-          height={96}
-          className="h-20 w-20 sm:h-24 sm:w-24"
-          priority
-        />
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           <span className="text-brand-gradient">Discover</span> what&rsquo;s around you
         </h1>
