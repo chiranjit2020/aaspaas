@@ -1,6 +1,8 @@
 import { searchPlaces } from "@/lib/search/service";
 import { getCategoriesCollection } from "@/lib/db/models/category";
 import { toCategorySummary } from "@/lib/db/serialize";
+import { getDiscoverySurface } from "@/lib/discovery/getDiscoverySurface";
+import { getLocalPulse } from "@/lib/discovery/getLocalPulse";
 import { SearchExperience } from "@/components/search/search-experience";
 
 interface HomePageProps {
@@ -16,9 +18,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const q = firstValue(sp.q) ?? "";
   const category = firstValue(sp.category);
 
-  const [categoriesCol, initialResults] = await Promise.all([
+  // Discovery Surface / Local Pulse only ever render in browse mode (see
+  // SearchExperience's isBrowsing) — skip the extra aggregations entirely
+  // when the page loads with an active search or filter already, e.g. a
+  // shared /?q=... link.
+  const isBrowsing = !q && !category;
+
+  const [categoriesCol, initialResults, discoveryCategories, localPulse] = await Promise.all([
     getCategoriesCollection(),
     searchPlaces({ q, categorySlug: category }),
+    isBrowsing ? getDiscoverySurface() : Promise.resolve([]),
+    isBrowsing ? getLocalPulse() : Promise.resolve(null),
   ]);
 
   const categoryDocs = await categoriesCol.find({ parentCategoryId: null }).sort({ name: 1 }).toArray();
@@ -47,6 +57,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         initialResults={initialResults.items}
         initialNextCursor={initialResults.nextCursor}
         topCategories={topCategories}
+        discoveryCategories={discoveryCategories}
+        localPulse={localPulse}
       />
     </div>
   );

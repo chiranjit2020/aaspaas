@@ -10,8 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceCard } from "@/components/places/place-card";
 import { CategoryIcon } from "@/components/places/category-icon";
+import { DiscoverySurface } from "@/components/discovery/discovery-surface";
+import { LocalPulse } from "@/components/discovery/local-pulse";
 import type { CategorySummary } from "@/lib/db/serialize";
 import type { PlaceSummary } from "@/types/domain";
+import type { DiscoveryCategory } from "@/lib/discovery/getDiscoverySurface";
+import type { LocalPulse as LocalPulseData } from "@/lib/discovery/getLocalPulse";
 
 interface SearchExperienceProps {
   initialQuery: string;
@@ -20,6 +24,9 @@ interface SearchExperienceProps {
   initialNextCursor: string | null;
   /** Only top-level categories are shown as quick filters, per the M1 IA. */
   topCategories: CategorySummary[];
+  /** Browse-mode-only surfaces — hidden once the user searches or filters. */
+  discoveryCategories: DiscoveryCategory[];
+  localPulse: LocalPulseData | null;
 }
 
 interface SearchResponse {
@@ -49,6 +56,8 @@ export function SearchExperience({
   initialResults,
   initialNextCursor,
   topCategories,
+  discoveryCategories,
+  localPulse,
 }: SearchExperienceProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -61,6 +70,11 @@ export function SearchExperience({
   const [, startTransition] = useTransition();
 
   const isFirstRun = useRef(true);
+  // Discovery Surface / Local Pulse are browse aids ("something to browse
+  // even when they aren't searching" — review2.md) -- once there's an active
+  // query or category filter, the person is looking for something specific,
+  // so give the results grid the full attention instead.
+  const isBrowsing = !query.trim() && !activeCategory;
 
   useEffect(() => {
     if (isFirstRun.current) {
@@ -142,6 +156,13 @@ export function SearchExperience({
           );
         })}
       </div>
+
+      {isBrowsing && (localPulse || discoveryCategories.length > 0) && (
+        <div className="space-y-6">
+          {localPulse && <LocalPulse pulse={localPulse} />}
+          <DiscoverySurface categories={discoveryCategories} />
+        </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
