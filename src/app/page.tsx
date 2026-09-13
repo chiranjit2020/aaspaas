@@ -28,7 +28,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
       <div className="mb-10 flex flex-col items-center gap-4 text-center">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          <span className="text-brand-gradient">Discover</span> what&rsquo;s around you
+          Discover what&rsquo;s around you
         </h1>
         <p className="max-w-xl text-muted-foreground">
           A local directory built by the community &mdash; shops, restaurants, repair

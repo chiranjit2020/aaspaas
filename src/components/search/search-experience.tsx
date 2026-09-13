@@ -108,12 +108,12 @@ export function SearchExperience({
   return (
     <div className="space-y-6">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-warning" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-warning" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a place, category, locality or PIN&hellip;"
-          className="h-12 pl-9 text-base"
+          className="h-12 border-transparent bg-card/60 pl-9 text-base ring-4 ring-primary/15 backdrop-blur-md placeholder:text-sm focus-visible:border-transparent focus-visible:ring-4 focus-visible:ring-primary/30"
           aria-label="Search places"
         />
       </div>
