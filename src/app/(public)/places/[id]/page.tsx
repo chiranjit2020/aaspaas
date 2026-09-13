@@ -104,9 +104,17 @@ export default async function PlacePage({ params }: PlacePageProps) {
 
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ContributorAvatar displayName={place.contributor?.displayName ?? "Community"} />
-          <span>
-            Added by {place.contributor ? `@${place.contributor.username}` : "the community"}.
-          </span>
+          {place.contributor ? (
+            <span>
+              Added by{" "}
+              <Link href={`/u/${place.contributor.username}`} className="hover:text-foreground hover:underline">
+                @{place.contributor.username}
+              </Link>
+              .
+            </span>
+          ) : (
+            <span>Added by the community.</span>
+          )}
         </div>
       </div>
     </div>

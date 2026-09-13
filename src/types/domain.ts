@@ -232,3 +232,24 @@ export interface UserProfile {
   stats: UserDoc["stats"];
   createdAt: string;
 }
+
+/**
+ * The PUBLIC contributor profile (`GET /api/users/[username]`, `/u/[username]`).
+ * Deliberately minimal, per review.md's Part 15 and the design-system
+ * philosophy's own rule against fake gamification: no email, no
+ * reputationLevel (every account is still "newcomer" — M4's reputation
+ * calculation doesn't exist yet, and showing a level that's identical for
+ * every contributor would look like a broken leveling system), no XP, no
+ * badges. placesAddedCount is a live count of *published* places only, not
+ * the stats.placesAdded submission counter — a public "accomplishment"
+ * number should reflect what actually made it into the directory, not raw
+ * submission attempts (pending or rejected ones included).
+ */
+export interface PublicProfile {
+  displayName: string;
+  username: string;
+  locality?: string;
+  district?: string;
+  memberSince: string;
+  placesAddedCount: number;
+}

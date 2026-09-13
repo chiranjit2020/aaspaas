@@ -34,9 +34,12 @@ export async function SiteHeader() {
                   Add a place
                 </Link>
               </Button>
-              <span className="hidden text-sm text-muted-foreground sm:inline">
+              <Link
+                href={`/u/${session.username}`}
+                className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"
+              >
                 @{session.username}
-              </span>
+              </Link>
               <LogoutButton />
             </>
           ) : (
