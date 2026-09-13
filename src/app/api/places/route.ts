@@ -8,6 +8,7 @@ import { getPlacesCollection } from "@/lib/db/models/place";
 import { getCategoriesCollection } from "@/lib/db/models/category";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { makeUniquePlaceSlug } from "@/lib/places/slugify";
+import { findPossibleDuplicates } from "@/lib/trust/duplicateDetection";
 import type { PlaceDoc } from "@/types/domain";
 
 /** GET /api/places — browse/list, i.e. search with no free-text term. */
@@ -55,6 +56,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unknown category." }, { status: 400 });
   }
 
+  // §2's "Fake/duplicate places" mitigation: surfaced to the submitter
+  // *before* creation. First attempt (no acknowledgeDuplicates) gets a 409
+  // with the candidates instead of a created place; the client shows a
+  // warning and, if the user picks "create it anyway," resubmits with
+  // acknowledgeDuplicates: true.
+  const possibleDuplicates = await findPossibleDuplicates({
+    name: input.name,
+    locality: input.locality,
+    lat: input.lat,
+    lng: input.lng,
+    phone: input.phone,
+  });
+  if (possibleDuplicates.length > 0 && !input.acknowledgeDuplicates) {
+    return NextResponse.json({ possibleDuplicates }, { status: 409 });
+  }
+
   const places = await getPlacesCollection();
   const slug = await makeUniquePlaceSlug(places, input.name);
   const now = new Date();
@@ -79,7 +96,9 @@ export async function POST(request: NextRequest) {
     verificationCount: 0,
     usefulCount: 0,
     notUsefulCount: 0,
-    duplicateOfPlaceId: null,
+    // A hint for the moderator queue, not a verdict — set only when the user
+    // proceeded past a warning about this exact candidate.
+    duplicateOfPlaceId: possibleDuplicates.length > 0 ? new ObjectId(possibleDuplicates[0].id) : null,
     tier: "free",
     createdAt: now,
     updatedAt: now,

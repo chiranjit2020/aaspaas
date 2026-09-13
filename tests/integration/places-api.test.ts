@@ -135,7 +135,18 @@ describe("POST /api/places — contributor association", () => {
   it("ignores a client-supplied createdBy — the session always wins", async () => {
     const spoofedId = new ObjectId().toHexString();
     const res = await POST(
-      postRequest({ ...PLACE_INPUT, name: "Spoof Attempt Shop", createdBy: spoofedId }, sessionCookie),
+      postRequest(
+        {
+          ...PLACE_INPUT,
+          name: "Spoof Attempt Shop",
+          createdBy: spoofedId,
+          // Different place than the one the previous test created — not
+          // testing duplicate detection here, so acknowledge upfront rather
+          // than reuse the same coordinates and get a 409 from that instead.
+          acknowledgeDuplicates: true,
+        },
+        sessionCookie,
+      ),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -149,7 +160,10 @@ describe("POST /api/places — contributor association", () => {
 
   it("keeps a pending submission out of public browse/search", async () => {
     const res = await POST(
-      postRequest({ ...PLACE_INPUT, name: "Should Stay Hidden Shop" }, sessionCookie),
+      postRequest(
+        { ...PLACE_INPUT, name: "Should Stay Hidden Shop", acknowledgeDuplicates: true },
+        sessionCookie,
+      ),
     );
     expect(res.status).toBe(201);
 
@@ -160,5 +174,67 @@ describe("POST /api/places — contributor association", () => {
     expect(list.items.some((p: { name: string }) => p.name === "Should Stay Hidden Shop")).toBe(
       false,
     );
+  });
+});
+
+describe("POST /api/places — duplicate detection", () => {
+  it("blocks a near-duplicate with 409 and a candidate list, before acknowledgement", async () => {
+    const original = await POST(
+      postRequest(
+        { ...PLACE_INPUT, name: "Duplicate Origin Shop", lat: 22.9, lng: 88.75, acknowledgeDuplicates: true },
+        sessionCookie,
+      ),
+    );
+    expect(original.status).toBe(201);
+
+    // Same locality, same spot, a plausible near-identical name.
+    const res = await POST(
+      postRequest(
+        { ...PLACE_INPUT, name: "Duplicate Origin Shop ", lat: 22.9, lng: 88.75 },
+        sessionCookie,
+      ),
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.possibleDuplicates.length).toBeGreaterThan(0);
+    expect(body.possibleDuplicates[0].name).toBe("Duplicate Origin Shop");
+  });
+
+  it("creates the place and records duplicateOfPlaceId once acknowledged", async () => {
+    const res = await POST(
+      postRequest(
+        {
+          ...PLACE_INPUT,
+          name: "Duplicate Origin Shop",
+          lat: 22.9,
+          lng: 88.75,
+          acknowledgeDuplicates: true,
+        },
+        sessionCookie,
+      ),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+
+    const { getPlacesCollection } = await import("@/lib/db/models/place");
+    const places = await getPlacesCollection();
+    const doc = await places.findOne({ _id: new ObjectId(body.id) });
+    expect(doc?.duplicateOfPlaceId).not.toBeNull();
+  });
+
+  it("does not flag genuinely distinct places in the same locality", async () => {
+    // Far from every coordinate any other test in this file uses.
+    const res = await POST(
+      postRequest(
+        {
+          ...PLACE_INPUT,
+          name: "A Completely Unrelated Bookstore",
+          lat: 22.95,
+          lng: 88.8,
+        },
+        sessionCookie,
+      ),
+    );
+    expect(res.status).toBe(201);
   });
 });

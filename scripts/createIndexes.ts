@@ -86,6 +86,12 @@ async function main() {
   );
   console.log("  rate_limit_counters: TTL on expiresAt");
 
+  // M3 addition — the existing places compound index leads with
+  // district/locality/pincode/categoryId, wrong prefix order for the
+  // moderation queue's "all pending, oldest first" access pattern.
+  await places.createIndex({ status: 1, createdAt: 1 }, { name: "status_createdAt" });
+  console.log("  places: (status, createdAt asc) for the moderation queue (addition beyond §1.4)");
+
   await client.close();
   console.log("Done.");
 }

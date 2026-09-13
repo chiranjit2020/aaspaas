@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, MapPin, TriangleAlert } from "lucide-react";
 import type { CategorySummary } from "@/lib/db/serialize";
+import type { DuplicateMatch } from "@/lib/trust/duplicateDetection";
 
 interface CategoryGroup {
   parent: CategorySummary;
@@ -44,13 +46,13 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [possibleDuplicates, setPossibleDuplicates] = useState<DuplicateMatch[] | null>(null);
 
   function set<K extends keyof typeof EMPTY_FORM>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(acknowledgeDuplicates: boolean) {
     setSubmitting(true);
     setError(null);
     setSuccess(null);
@@ -70,12 +72,20 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
           address: form.address || undefined,
           lat: Number(form.lat),
           lng: Number(form.lng),
+          acknowledgeDuplicates,
         }),
       });
       const data = await res.json();
+
+      if (res.status === 409 && data.possibleDuplicates) {
+        setPossibleDuplicates(data.possibleDuplicates);
+        return;
+      }
       if (!res.ok) {
         throw new Error(data.error ?? "Couldn't submit that place. Try again.");
       }
+
+      setPossibleDuplicates(null);
       setSuccess(`${form.name} was submitted and is now pending review.`);
       setForm(EMPTY_FORM);
       router.refresh(); // updates the "Your submissions" list below
@@ -84,6 +94,64 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    submit(false);
+  }
+
+  if (possibleDuplicates) {
+    return (
+      <div className="space-y-4">
+        <Alert>
+          <TriangleAlert />
+          <AlertTitle>A similar place may already exist</AlertTitle>
+          <AlertDescription>
+            We found {possibleDuplicates.length === 1 ? "a place" : "places"} that might be the
+            same as &ldquo;{form.name}&rdquo;. If one of these is it, go there instead &mdash; no
+            need to add it again.
+          </AlertDescription>
+        </Alert>
+
+        <ul className="space-y-2">
+          {possibleDuplicates.map((dup) => (
+            <li key={dup.id}>
+              <Link
+                href={`/places/${dup.slug}`}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-4 py-3 transition-colors hover:border-primary/50 hover:bg-accent/40"
+              >
+                <div>
+                  <p className="font-medium">{dup.name}</p>
+                  <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="size-3.5 text-location" />
+                    {dup.locality} &middot; {dup.pincode}
+                    {dup.phoneMatch && " · same phone number"}
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm text-primary">This is it &rarr;</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => setPossibleDuplicates(null)} className="flex-1">
+            Go back and edit
+          </Button>
+          <Button onClick={() => submit(true)} disabled={submitting} className="flex-1">
+            {submitting && <Spinner />}
+            None of these — add it anyway
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

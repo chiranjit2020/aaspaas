@@ -11,7 +11,8 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "seed": "tsx scripts/seed.ts",
-    "create-indexes": "tsx scripts/createIndexes.ts"
+    "create-indexes": "tsx scripts/createIndexes.ts",
+    "make-admin": "tsx scripts/makeAdmin.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

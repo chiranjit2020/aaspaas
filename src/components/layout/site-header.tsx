@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { getCurrentUserFromCookieStore } from "@/lib/auth/session";
@@ -10,6 +10,11 @@ import { getCurrentUserFromCookieStore } from "@/lib/auth/session";
 // its second line, so there's no separate tagline element here.
 export async function SiteHeader() {
   const session = await getCurrentUserFromCookieStore();
+  // UI convenience only, from the JWT's roles claim — not a security
+  // boundary. /moderation itself re-checks the role fresh from the DB (see
+  // requireModerator.ts), so a stale claim here at worst shows a link that
+  // 404s, never grants access.
+  const isModerator = session?.roles.some((r) => r === "MODERATOR" || r === "ADMIN");
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
@@ -34,6 +39,14 @@ export async function SiteHeader() {
                   Add a place
                 </Link>
               </Button>
+              {isModerator && (
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/moderation">
+                    <ShieldCheck />
+                    Moderate
+                  </Link>
+                </Button>
+              )}
               <Link
                 href={`/u/${session.username}`}
                 className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"

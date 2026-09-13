@@ -20,6 +20,12 @@ export const placeInputSchema = z.object({
   address: z.string().trim().max(300).optional(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
+  /**
+   * Set by the client on a resubmit after seeing a "possible duplicate"
+   * warning (see lib/trust/duplicateDetection.ts) and choosing "create it
+   * anyway." Absent/false on a first attempt.
+   */
+  acknowledgeDuplicates: z.boolean().optional(),
 });
 
 export type PlaceInput = z.infer<typeof placeInputSchema>;

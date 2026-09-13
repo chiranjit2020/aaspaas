@@ -52,11 +52,19 @@ the full register → verify → login flow locally.
 | `npm run format` | Prettier, writes in place |
 | `npm run create-indexes` | Creates all indexes from `07-roadmap-and-architecture.md` §1.4 |
 | `npm run seed` | Wipes/re-seeds `categories` + `places`; upserts 3 seed contributors in `users` (never wipes real accounts) |
+| `npm run make-admin -- <username>` | Grants ADMIN to an existing user — the only way in, no self-service UI |
 
 Seed contributors (so every seeded place has a real `createdBy`, not `null`) log in
 with `priya_habra` / `rahul_ashoknagar` / `ananya_barasat` and the password
 `AasPaasSeed#2024` — dev-only, printed by the seed script, never used against
 `aaspaas_prod`.
+
+### Moderation
+
+`/moderation` is hidden from regular users (a non-moderator gets a plain 404, not
+a "forbidden" page) and requires MODERATOR or ADMIN — grant yourself one with
+`npm run make-admin -- <your-username>` after registering normally, then visit
+`/moderation` to approve/reject pending places.
 
 ## Project layout
 
@@ -65,19 +73,22 @@ src/app/                current pages + API routes (App Router)
 src/lib/auth/            password hashing, JWT, opaque tokens, session/cookies
 src/lib/db/              Mongo connection singleton + per-collection accessors
 src/lib/email/           transactional email (Resend, with a dev console fallback)
+src/lib/moderation/      moderation queue data (pending places + duplicate hints)
 src/lib/rateLimit/       Mongo-backed fixed-window rate limiting
 src/lib/search/          parseQuery → buildQuery → rank pipeline (see §1.6)
+src/lib/trust/           duplicate detection (name similarity, proximity, phone match)
 src/lib/validation/      zod schemas shared by scripts, API routes and forms
 src/components/ui/       shadcn/ui primitives
-src/components/          app-specific components (search, places, auth, layout)
+src/components/          app-specific components (search, places, auth, moderation, layout)
 src/types/domain.ts      the authoritative schema (§1.3), typed
-scripts/                 seed.ts, createIndexes.ts
+scripts/                 seed.ts, createIndexes.ts, makeAdmin.ts
 tests/unit/              unit tests for pure logic (search/ranking, validation, auth helpers)
 tests/integration/       API routes exercised against a real mongodb-memory-server instance
 ```
 
 ## Status
 
-M0 (scaffold + CI), M1 (data model, seed, read-only browse/search) and M2 (auth,
-add-place flow) are done. Moderation, reputation and spam scoring land in M3–M5 —
-see `07-roadmap-and-architecture.md` §4.
+M0 (scaffold + CI), M1 (data model, seed, read-only browse/search), M2 (auth,
+add-place flow) and M3 (duplicate detection, moderation queue) are done.
+Reputation and spam scoring land in M4–M5 — see
+`07-roadmap-and-architecture.md` §4.
