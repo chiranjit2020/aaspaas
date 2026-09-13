@@ -25,7 +25,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const topCategories = categoryDocs.map(toCategorySummary);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
+    <div className="relative mx-auto max-w-6xl px-4 py-10 sm:py-14">
+      <div
+        aria-hidden
+        className="bg-hero-grid pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] sm:h-[480px]"
+      />
+
       <div className="mb-10 flex flex-col items-center gap-4 text-center">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           Discover what&rsquo;s around you
