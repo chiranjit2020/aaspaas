@@ -1,0 +1,55 @@
+import {
+  Bike,
+  BookOpen,
+  Cake,
+  Camera,
+  Cpu,
+  Croissant,
+  Droplet,
+  GraduationCap,
+  Hammer,
+  HelpCircle,
+  Laptop,
+  Monitor,
+  Pencil,
+  Pill,
+  Scissors,
+  Shirt,
+  ShoppingBasket,
+  Smartphone,
+  Store,
+  UtensilsCrossed,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICONS: Record<string, LucideIcon> = {
+  cpu: Cpu,
+  smartphone: Smartphone,
+  monitor: Monitor,
+  camera: Camera,
+  utensils: UtensilsCrossed,
+  "utensils-crossed": UtensilsCrossed,
+  cake: Cake,
+  croissant: Croissant,
+  wrench: Wrench,
+  zap: Zap,
+  droplet: Droplet,
+  scissors: Scissors,
+  "graduation-cap": GraduationCap,
+  "book-open": BookOpen,
+  laptop: Laptop,
+  store: Store,
+  shirt: Shirt,
+  "shopping-basket": ShoppingBasket,
+  hammer: Hammer,
+  pencil: Pencil,
+  pill: Pill,
+  bike: Bike,
+};
+
+export function CategoryIcon({ name, className }: { name: string; className?: string }) {
+  const Icon = ICONS[name] ?? HelpCircle;
+  return <Icon className={className} aria-hidden="true" />;
+}
