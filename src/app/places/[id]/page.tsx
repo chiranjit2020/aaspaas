@@ -84,7 +84,7 @@ export default async function PlacePage({ params }: PlacePageProps) {
         <Separator />
 
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 text-success">
             <ThumbsUp className="size-4" />
             {place.usefulCount} useful
           </span>

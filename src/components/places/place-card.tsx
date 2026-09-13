@@ -35,7 +35,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
               <span />
             )}
             {place.usefulCount > 0 && (
-              <span className="flex items-center gap-1 text-xs">
+              <span className="flex items-center gap-1 text-xs text-success">
                 <ThumbsUp className="size-3.5" />
                 {place.usefulCount}
               </span>
