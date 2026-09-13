@@ -33,7 +33,10 @@ async function main() {
     { district: 1, locality: 1, pincode: 1, categoryId: 1, status: 1 },
     { name: "district_locality_pincode_category_status" },
   );
-  console.log("  places: 2dsphere, text (name^10/description^1), compound filter index");
+  await places.createIndex({ slug: 1 }, { unique: true, name: "slug_unique" });
+  console.log(
+    "  places: 2dsphere, text (name^10/description^1), compound filter index, unique slug (addition beyond §1.4)",
+  );
 
   const users = db.collection("users");
   await users.createIndex({ username: 1 }, { unique: true, name: "username_unique" });
@@ -66,6 +69,22 @@ async function main() {
   const categories = db.collection("categories");
   await categories.createIndex({ slug: 1 }, { unique: true, name: "slug_unique" });
   console.log("  categories: unique slug (addition beyond §1.4, needed for routing)");
+
+  // M2 additions — also beyond §1.4's original list, added as these
+  // collections were actually wired up.
+  const emailVerificationTokens = db.collection("email_verification_tokens");
+  await emailVerificationTokens.createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: "expiresAt_ttl" },
+  );
+  console.log("  email_verification_tokens: TTL on expiresAt");
+
+  const rateLimitCounters = db.collection("rate_limit_counters");
+  await rateLimitCounters.createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: "expiresAt_ttl" },
+  );
+  console.log("  rate_limit_counters: TTL on expiresAt");
 
   await client.close();
   console.log("Done.");

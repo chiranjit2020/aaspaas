@@ -1,4 +1,4 @@
-import type { CategoryDoc, PlaceDoc, PlaceDetail, PlaceSummary } from "@/types/domain";
+import type { CategoryDoc, PlaceDoc, PlaceDetail, PlaceSummary, UserDoc, UserProfile } from "@/types/domain";
 
 export interface CategorySummary {
   id: string;
@@ -37,6 +37,22 @@ export function toPlaceSummary(
     phone: doc.phone,
     usefulCount: doc.usefulCount,
     notUsefulCount: doc.notUsefulCount,
+  };
+}
+
+export function toUserProfile(doc: UserDoc): UserProfile {
+  return {
+    id: doc._id.toHexString(),
+    displayName: doc.displayName,
+    username: doc.username,
+    email: doc.email,
+    emailVerified: doc.emailVerified,
+    roles: doc.roles,
+    locality: doc.locality,
+    district: doc.district,
+    reputationLevel: doc.reputationLevel,
+    stats: doc.stats,
+    createdAt: doc.createdAt.toISOString(),
   };
 }
 

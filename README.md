@@ -16,7 +16,7 @@ MongoDB Atlas (native driver) &middot; zod &middot; Vitest
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in MONGODB_URI (see below)
+cp .env.example .env.local   # then fill in MONGODB_URI and JWT_ACCESS_SECRET (see below)
 npm run create-indexes       # one-time per database
 npm run seed                 # sample places around Habra, North 24 Parganas
 npm run dev
@@ -31,6 +31,14 @@ on it — `aaspaas_dev`, `aaspaas_staging`, `aaspaas_prod` — and point `.env.l
 `MONGODB_URI`/`MONGODB_DB_NAME` at `aaspaas_dev` for local work. `npm run
 create-indexes` and `npm run seed` both read `MONGODB_URI`/`MONGODB_DB_NAME` from
 your `.env.local`.
+
+### Auth
+
+`JWT_ACCESS_SECRET` must be set for register/login/add-place to work — generate one
+with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and
+put it in `.env.local`. Without `RESEND_API_KEY` set, verification emails aren't
+sent — the link is logged to the server console instead, which is enough to test
+the full register → verify → login flow locally.
 
 ## Scripts
 
@@ -49,18 +57,21 @@ your `.env.local`.
 
 ```
 src/app/                current pages + API routes (App Router)
+src/lib/auth/            password hashing, JWT, opaque tokens, session/cookies
 src/lib/db/              Mongo connection singleton + per-collection accessors
+src/lib/email/           transactional email (Resend, with a dev console fallback)
+src/lib/rateLimit/       Mongo-backed fixed-window rate limiting
 src/lib/search/          parseQuery → buildQuery → rank pipeline (see §1.6)
-src/lib/validation/      zod schemas shared by scripts, API routes and (later) forms
+src/lib/validation/      zod schemas shared by scripts, API routes and forms
 src/components/ui/       shadcn/ui primitives
-src/components/          app-specific components (search, places, layout)
+src/components/          app-specific components (search, places, auth, layout)
 src/types/domain.ts      the authoritative schema (§1.3), typed
 scripts/                 seed.ts, createIndexes.ts
-tests/unit/              unit tests for the search/ranking core
+tests/unit/              unit tests for the search/ranking and auth core
 ```
 
 ## Status
 
-M0 (scaffold + CI) and M1 (data model, seed, read-only browse/search) are done.
-Auth, the add-place flow, moderation, reputation and spam scoring land in M2–M5 —
+M0 (scaffold + CI), M1 (data model, seed, read-only browse/search) and M2 (auth,
+add-place flow) are done. Moderation, reputation and spam scoring land in M3–M5 —
 see `07-roadmap-and-architecture.md` §4.

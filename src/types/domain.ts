@@ -45,6 +45,33 @@ export interface UserDoc {
   lastLoginAt?: Date;
 }
 
+export interface EmailVerificationTokenDoc {
+  _id: ObjectId;
+  userId: ObjectId;
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt?: Date;
+  createdAt: Date;
+}
+
+export interface RefreshTokenDoc {
+  _id: ObjectId;
+  userId: ObjectId;
+  tokenHash: string;
+  issuedAt: Date;
+  expiresAt: Date;
+  revoked: boolean;
+  userAgent?: string;
+}
+
+/** Rate-limit counters — fixed-window, per roadmap §2.1. */
+export interface RateLimitCounterDoc {
+  _id: string;
+  count: number;
+  windowStart: Date;
+  expiresAt: Date;
+}
+
 export interface CategoryDoc {
   _id: ObjectId;
   slug: string;
@@ -168,5 +195,25 @@ export interface PlaceDetail extends PlaceSummary {
   address?: string;
   location: { lat: number; lng: number };
   verificationCount: number;
+  createdAt: string;
+}
+
+/**
+ * The user's own profile (`GET /api/users/me`) — never includes passwordHash.
+ * A user seeing their own email is fine; the §2 PII rule ("locality only,
+ * never lat/lng or email") is about the future *public* profile
+ * (`/api/users/[username]`, M4), which must build its own, narrower shape.
+ */
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  username: string;
+  email: string;
+  emailVerified: boolean;
+  roles: UserRole[];
+  locality?: string;
+  district?: string;
+  reputationLevel: ReputationLevel;
+  stats: UserDoc["stats"];
   createdAt: string;
 }
