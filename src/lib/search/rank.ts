@@ -7,6 +7,13 @@
  * Cursor-based (not skip/limit) so pages stay fast as the collection grows: the
  * cursor encodes the last row's (rankScore, _id) tuple and the next page asks Mongo
  * for "rows that sort after this one" instead of "skip N rows".
+ *
+ * Relevance comes first: a popular place must never bury a more relevant one just
+ * because it has more votes. usefulCount/notUsefulCount are log-scaled for exactly
+ * that reason — a linear term lets vote count dominate arbitrarily (500 useful
+ * votes would add +1000 to a raw `usefulCount*2` term, dwarfing any plausible
+ * $text score), while ln(1+n) keeps 10 votes and 500 votes only a few points
+ * apart, so text relevance stays the deciding factor among matched documents.
  */
 import { ObjectId, type Document } from "mongodb";
 
@@ -46,8 +53,8 @@ export function buildScoringStages(usedTextSearch: boolean): Document[] {
         rankScore: {
           $add: [
             { $multiply: ["$textScore", 10] },
-            { $multiply: [{ $ifNull: ["$usefulCount", 0] }, 2] },
-            { $multiply: [{ $ifNull: ["$notUsefulCount", 0] }, -1] },
+            { $multiply: [{ $ln: [{ $add: [{ $ifNull: ["$usefulCount", 0] }, 1] }] }, 3] },
+            { $multiply: [{ $ln: [{ $add: [{ $ifNull: ["$notUsefulCount", 0] }, 1] }] }, -2] },
             "$recencyBoost",
           ],
         },

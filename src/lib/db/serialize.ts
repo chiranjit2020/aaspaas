@@ -1,5 +1,10 @@
 import type { CategoryDoc, PlaceDoc, PlaceDetail, PlaceSummary, UserDoc, UserProfile } from "@/types/domain";
 
+export interface Contributor {
+  username: string;
+  displayName: string;
+}
+
 export interface CategorySummary {
   id: string;
   slug: string;
@@ -59,13 +64,17 @@ export function toUserProfile(doc: UserDoc): UserProfile {
 export function toPlaceDetail(
   doc: PlaceDoc,
   category: CategoryDoc | undefined,
+  contributor: Contributor | null,
 ): PlaceDetail {
   return {
     ...toPlaceSummary(doc, category),
     description: doc.description,
     address: doc.address,
-    location: { lat: doc.location.coordinates[1], lng: doc.location.coordinates[0] },
+    mapQuery: [doc.name, doc.address, doc.locality, doc.district]
+      .filter(Boolean)
+      .join(", "),
     verificationCount: doc.verificationCount,
     createdAt: doc.createdAt.toISOString(),
+    contributor,
   };
 }

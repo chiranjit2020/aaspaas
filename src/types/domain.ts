@@ -193,9 +193,18 @@ export interface PlaceSummary {
 export interface PlaceDetail extends PlaceSummary {
   description?: string;
   address?: string;
-  location: { lat: number; lng: number };
+  /**
+   * No raw lat/lng here deliberately — exact coordinates aren't exposed
+   * publicly until the geo/maps phase (Phase 4). mapQuery is a plain text
+   * string (name + locality/district) that a maps provider can geocode
+   * itself, good enough for a "Directions"/"View on map" link without
+   * publishing precise coordinates.
+   */
+  mapQuery: string;
   verificationCount: number;
   createdAt: string;
+  /** Null only if createdBy points at an account that no longer exists. */
+  contributor: { username: string; displayName: string } | null;
 }
 
 /**

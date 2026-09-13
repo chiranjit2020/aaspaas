@@ -51,7 +51,12 @@ the full register → verify → login flow locally.
 | `npm test` | Unit tests (Vitest) |
 | `npm run format` | Prettier, writes in place |
 | `npm run create-indexes` | Creates all indexes from `07-roadmap-and-architecture.md` §1.4 |
-| `npm run seed` | Wipes and re-seeds `categories` + `places` with sample data |
+| `npm run seed` | Wipes/re-seeds `categories` + `places`; upserts 3 seed contributors in `users` (never wipes real accounts) |
+
+Seed contributors (so every seeded place has a real `createdBy`, not `null`) log in
+with `priya_habra` / `rahul_ashoknagar` / `ananya_barasat` and the password
+`AasPaasSeed#2024` — dev-only, printed by the seed script, never used against
+`aaspaas_prod`.
 
 ## Project layout
 
@@ -67,7 +72,8 @@ src/components/ui/       shadcn/ui primitives
 src/components/          app-specific components (search, places, auth, layout)
 src/types/domain.ts      the authoritative schema (§1.3), typed
 scripts/                 seed.ts, createIndexes.ts
-tests/unit/              unit tests for the search/ranking and auth core
+tests/unit/              unit tests for pure logic (search/ranking, validation, auth helpers)
+tests/integration/       API routes exercised against a real mongodb-memory-server instance
 ```
 
 ## Status

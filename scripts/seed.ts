@@ -1,20 +1,68 @@
 /**
- * Seeds `categories` and `places` with sample data so M1's search/browse UI has
- * something real to query against.
+ * Seeds `categories` and `places` (plus a handful of seed contributor `users`)
+ * with sample data so the search/browse UI has something real to query against.
  *
  * The places below are SYNTHETIC demo data — plausible small-business names and
  * approximate town-center coordinates for localities in and around Habra, North 24
  * Parganas (per 02-brand-and-positioning.md §9's "start extremely narrow" strategy)
- * — not a scrape or listing of real, identifiable businesses. Swap this file for
- * real community submissions once M2's add-place flow ships.
+ * — not a scrape or listing of real, identifiable businesses. Real places get
+ * added through the actual add-place flow (M2) alongside this seed data.
  *
- * Usage: npm run seed  (wipes and re-seeds `categories` and `places` only)
+ * Usage: npm run seed
+ *   - `categories` and `places` are wiped and fully re-seeded every run.
+ *   - `users`: only the fixed seed-contributor accounts below are touched (by
+ *     username, upserted), so this never wipes or affects real registered users.
  */
 import { loadEnv } from "./_env";
 loadEnv();
 
 import { MongoClient, ObjectId } from "mongodb";
 import { placeInputSchema } from "../src/lib/validation/place";
+import { hashPassword } from "../src/lib/auth/password";
+import type { UserDoc } from "../src/types/domain";
+
+// ---------------------------------------------------------------------------
+// Seed contributors — fictional dev accounts so seeded places have a real
+// createdBy instead of being anonymous (review.md's Part 14: "do not treat
+// places as anonymous records"). Upserted by username, never wiped, so
+// re-running seed never touches real accounts people register through the
+// app. Password is fixed and documented purely for local dev convenience —
+// this only ever runs against aaspaas_dev/aaspaas_test, never prod.
+// ---------------------------------------------------------------------------
+
+const SEED_CONTRIBUTOR_PASSWORD = "AasPaasSeed#2024";
+
+interface SeedContributor {
+  username: string;
+  displayName: string;
+  email: string;
+  locality: string;
+  district: string;
+}
+
+const SEED_CONTRIBUTORS: SeedContributor[] = [
+  {
+    username: "priya_habra",
+    displayName: "Priya Sharma",
+    email: "priya.seed@seed.aaspaas.local",
+    locality: "Habra",
+    district: "North 24 Parganas",
+  },
+  {
+    username: "rahul_ashoknagar",
+    displayName: "Rahul Das",
+    email: "rahul.seed@seed.aaspaas.local",
+    locality: "Ashoknagar",
+    district: "North 24 Parganas",
+  },
+  {
+    username: "ananya_barasat",
+    displayName: "Ananya Roy",
+    email: "ananya.seed@seed.aaspaas.local",
+    locality: "Barasat",
+    district: "North 24 Parganas",
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Categories — mirrors the taxonomy sketched in 01-product-vision.md.
@@ -297,6 +345,44 @@ async function main() {
   await db.collection("categories").deleteMany({});
   await db.collection("places").deleteMany({});
 
+  // Upsert seed contributors — never wiped, so this never touches real users.
+  const users = db.collection<UserDoc>("users");
+  const passwordHash = await hashPassword(SEED_CONTRIBUTOR_PASSWORD);
+  const contributorIds: ObjectId[] = [];
+  for (const c of SEED_CONTRIBUTORS) {
+    const now = new Date();
+    const result = await users.findOneAndUpdate(
+      { username: c.username },
+      {
+        $set: { displayName: c.displayName, locality: c.locality, district: c.district, updatedAt: now },
+        $setOnInsert: {
+          _id: new ObjectId(),
+          email: c.email,
+          emailVerified: true,
+          passwordHash,
+          roles: ["CONTRIBUTOR"],
+          reputationLevel: "newcomer",
+          stats: {
+            placesAdded: 0,
+            placesVerified: 0,
+            correctionsMade: 0,
+            reportsFiled: 0,
+            usefulVotesReceived: 0,
+            rejectedSubmissions: 0,
+            spamReportsAgainst: 0,
+          },
+          accountStatus: "active",
+          createdAt: now,
+        },
+      },
+      { upsert: true, returnDocument: "after" },
+    );
+    contributorIds.push(result!._id);
+  }
+  console.log(
+    `  upserted ${SEED_CONTRIBUTORS.length} seed contributors (password: ${SEED_CONTRIBUTOR_PASSWORD}, dev only)`,
+  );
+
   const slugToId = new Map<string, ObjectId>();
   for (const cat of CATEGORIES) slugToId.set(cat.slug, new ObjectId());
 
@@ -313,6 +399,7 @@ async function main() {
 
   const rawPlaces = generatePlaces(80);
   const now = new Date();
+  const placeCountByContributor = new Map<string, number>();
 
   const placeDocs = rawPlaces.map((p, i) => {
     const parsed = placeInputSchema.parse({
@@ -332,6 +419,10 @@ async function main() {
     const slug = `${parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${i}`;
     const createdAt = new Date(now.getTime() - Math.floor(rand() * 1000 * 60 * 60 * 24 * 180));
 
+    const createdBy = pick(contributorIds);
+    const key = createdBy.toHexString();
+    placeCountByContributor.set(key, (placeCountByContributor.get(key) ?? 0) + 1);
+
     return {
       _id: new ObjectId(),
       name: parsed.name,
@@ -344,7 +435,7 @@ async function main() {
       pincode: parsed.pincode,
       location: { type: "Point" as const, coordinates: [parsed.lng, parsed.lat] as [number, number] },
       address: undefined,
-      createdBy: null,
+      createdBy,
       ownerId: null,
       status: "published" as const,
       spamScore: 0,
@@ -360,6 +451,14 @@ async function main() {
 
   await db.collection("places").insertMany(placeDocs);
   console.log(`  inserted ${placeDocs.length} places across ${LOCALITIES.length} localities`);
+
+  for (const [contributorId, count] of placeCountByContributor) {
+    await users.updateOne(
+      { _id: new ObjectId(contributorId) },
+      { $set: { "stats.placesAdded": count } },
+    );
+  }
+  console.log(`  updated stats.placesAdded for ${placeCountByContributor.size} contributors`);
 
   await client.close();
   console.log("Done. Run `npm run create-indexes` if you haven't already.");

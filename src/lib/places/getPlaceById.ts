@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { getPlacesCollection } from "@/lib/db/models/place";
 import { getCategoriesCollection } from "@/lib/db/models/category";
+import { getUsersCollection } from "@/lib/db/models/user";
 import { toPlaceDetail } from "@/lib/db/serialize";
 import type { PlaceDetail } from "@/types/domain";
 
@@ -21,5 +22,15 @@ export async function getPlaceById(id: string): Promise<PlaceDetail | null> {
   const categories = await getCategoriesCollection();
   const category = await categories.findOne({ _id: doc.categoryId });
 
-  return toPlaceDetail(doc, category ?? undefined);
+  let contributor = null;
+  if (doc.createdBy) {
+    const users = await getUsersCollection();
+    const user = await users.findOne(
+      { _id: doc.createdBy },
+      { projection: { username: 1, displayName: 1 } },
+    );
+    if (user) contributor = { username: user.username, displayName: user.displayName };
+  }
+
+  return toPlaceDetail(doc, category ?? undefined, contributor);
 }

@@ -27,8 +27,12 @@ export default async function PlacePage({ params }: PlacePageProps) {
   const place = await getPlaceById(id);
   if (!place) notFound();
 
-  const directionsUrl = `https://www.openstreetmap.org/directions?to=${place.location.lat},${place.location.lng}`;
-  const mapViewUrl = `https://www.openstreetmap.org/?mlat=${place.location.lat}&mlon=${place.location.lng}#map=17/${place.location.lat}/${place.location.lng}`;
+  // Text-based (name + address), not the stored lat/lng — exact coordinates
+  // aren't exposed publicly until the geo/maps phase (Phase 4). The maps
+  // provider geocodes the text itself.
+  const mapQuery = encodeURIComponent(place.mapQuery);
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`;
+  const mapViewUrl = `https://www.openstreetmap.org/search?query=${mapQuery}`;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -95,7 +99,13 @@ export default async function PlacePage({ params }: PlacePageProps) {
           {place.verificationCount > 0 && <span>{place.verificationCount} verifications</span>}
         </div>
 
-        <p className="text-xs text-muted-foreground">Added by the community.</p>
+        <p className="text-xs text-muted-foreground">
+          {place.contributor ? (
+            <>Added by @{place.contributor.username}.</>
+          ) : (
+            "Added by the community."
+          )}
+        </p>
       </div>
     </div>
   );
