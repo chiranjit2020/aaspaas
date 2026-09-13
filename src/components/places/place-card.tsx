@@ -20,7 +20,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <MapPin className="size-3.5 shrink-0" />
+            <MapPin className="size-3.5 shrink-0 text-location" />
             <span>
               {place.locality} &middot; {place.pincode}
             </span>
@@ -35,7 +35,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
               <span />
             )}
             {place.usefulCount > 0 && (
-              <span className="flex items-center gap-1 text-xs text-success">
+              <span className="flex items-center gap-1 text-xs text-appreciation">
                 <ThumbsUp className="size-3.5" />
                 {place.usefulCount}
               </span>

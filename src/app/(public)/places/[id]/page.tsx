@@ -54,7 +54,7 @@ export default async function PlacePage({ params }: PlacePageProps) {
         </div>
 
         <div className="flex items-start gap-1.5 text-muted-foreground">
-          <MapPin className="mt-0.5 size-4 shrink-0" />
+          <MapPin className="mt-0.5 size-4 shrink-0 text-location" />
           <span>
             {place.address ? `${place.address}, ` : ""}
             {place.locality}, {place.district} &mdash; {place.pincode}
@@ -88,7 +88,7 @@ export default async function PlacePage({ params }: PlacePageProps) {
         <Separator />
 
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5 text-success">
+          <span className="flex items-center gap-1.5 text-appreciation">
             <ThumbsUp className="size-4" />
             {place.usefulCount} useful
           </span>
@@ -96,7 +96,9 @@ export default async function PlacePage({ params }: PlacePageProps) {
             <ThumbsDown className="size-4" />
             {place.notUsefulCount} not useful
           </span>
-          {place.verificationCount > 0 && <span>{place.verificationCount} verifications</span>}
+          {place.verificationCount > 0 && (
+            <span className="text-success">{place.verificationCount} verifications</span>
+          )}
         </div>
 
         <p className="text-xs text-muted-foreground">

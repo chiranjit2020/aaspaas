@@ -5,17 +5,43 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * AasPaas brand palette — verbatim from 03-community-and-contributors.md's
- * "AasPaas — initial brand system":
+ * AasPaas design system — semantic color tokens.
  *
- *   Purple       -> discovery / imagination      #8B5CF6
- *   Pink         -> community / friendliness     #EC4899
- *   Blue         -> trust / technology            #3B82F6
- *   Ghost White  -> breathing space                #F8F8FF
- *   #101010      -> foundation                     #101010
- *   Crimson      -> alerts / important actions     #DC143C
- *   Light Green  -> verified / positive            #90EE90
- *   Orange       -> discovery / activity           #FFA500
+ * Design philosophy (from review2.md): every color has a JOB. Nothing is
+ * decorative. A component gets a neutral base plus at most ONE semantic
+ * accent — never purple+pink+blue+green+orange on the same card. That's how
+ * you avoid "rainbow UI."
+ *
+ *   Token          Color              Job
+ *   -------------  -----------------  ------------------------------------
+ *   foreground/bg  Ghost White/#101010  Foundation / primary content
+ *   primary        Purple #8B5CF6     Discovery / AasPaas identity (brand
+ *                                     actions: primary buttons, active nav)
+ *   location       Blue #3B82F6       Location / information (locality,
+ *                                     district, PIN — "where")
+ *   success        Light Green #90EE90  Verified / trusted (moderation and
+ *                                     verification signals specifically —
+ *                                     NOT general "useful" appreciation)
+ *   appreciation   Pink #EC4899       Community appreciation ("N people
+ *                                     found this useful" — a warmer, more
+ *                                     personal signal than "verified")
+ *   warning        Orange #FFA500     New / activity / opportunity
+ *                                     (discovery, "new this week")
+ *   destructive    Crimson #DC143C    Warning / report / danger (actions,
+ *                                     not routine display stats)
+ *
+ * Intensity levels (apply via Tailwind opacity modifiers, not new tokens):
+ *   Level 0  no color                 default state
+ *   Level 1  color/10 to color/15     subtle tint — badges, hover backgrounds
+ *   Level 2  color solid              semantic accent — icons, primary CTAs
+ *   Level 3  reserved                 celebratory moments only (Phase 5:
+ *                                     achievements/milestones) — not used yet
+ *
+ * Motion (use Tailwind's existing duration scale, no new tokens needed):
+ *   duration-150 (default)  interaction feedback — buttons, card hover
+ *   duration-300            content transitions — search results swapping
+ *   duration-500/700        reserved for achievement moments (Phase 5)
+ *   Never: permanent bouncing, constant gradients, particles, autoplay.
  *
  * The two neutrals (Ghost White, #101010) swap roles between themes: Ghost
  * White is the light-mode background / dark-mode text, #101010 the dark-mode
@@ -88,6 +114,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-location: var(--location);
+  --color-appreciation: var(--appreciation);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -129,6 +157,8 @@
   --success-foreground: var(--brand-foundation);
   --warning: var(--brand-orange);
   --warning-foreground: var(--brand-foundation);
+  --location: var(--brand-blue);
+  --appreciation: var(--brand-pink);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: color-mix(in oklab, var(--brand-purple) 50%, transparent);
@@ -169,6 +199,8 @@
   --success-foreground: var(--brand-foundation);
   --warning: var(--brand-orange);
   --warning-foreground: var(--brand-foundation);
+  --location: var(--brand-blue);
+  --appreciation: var(--brand-pink);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: color-mix(in oklab, var(--brand-purple) 50%, transparent);
