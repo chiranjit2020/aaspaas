@@ -113,7 +113,7 @@ export function SearchExperience({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a place, category, locality or PIN&hellip;"
-          className="h-12 border-transparent bg-card/60 pl-9 text-base ring-4 ring-primary/15 backdrop-blur-md placeholder:text-sm focus-visible:border-transparent focus-visible:ring-4 focus-visible:ring-primary/30"
+          className="h-12 border-transparent bg-card/60 pl-9 text-base ring-4 ring-foreground/15 backdrop-blur-md placeholder:text-sm focus-visible:border-transparent focus-visible:ring-4 focus-visible:ring-foreground/30"
           aria-label="Search places"
         />
       </div>
