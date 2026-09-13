@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Nunito_Sans, Playfair_Display } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -21,11 +21,16 @@ export const metadata: Metadata = {
     "A community-powered directory of local shops, services and places — added, verified and corrected by the people who actually use them.",
 };
 
+export const viewport: Viewport = {
+  colorScheme: "dark",
+};
+
+// Dark is the default (and, until a theme switcher exists, only) theme.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${nunitoSans.variable} ${playfairDisplay.variable} h-full antialiased`}
+      className={`dark ${nunitoSans.variable} ${playfairDisplay.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <SiteHeader />
