@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -107,16 +108,23 @@ export function SearchExperience({
 
   return (
     <div className="space-y-6">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-warning" />
-        <Input
+      <InputGroup className="h-12 border-transparent bg-card/60 ring-4 ring-foreground/15 backdrop-blur-md has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-foreground/30">
+        <InputGroupAddon>
+          <Search className="text-warning" />
+        </InputGroupAddon>
+        <InputGroupInput
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a place, category, locality or PIN&hellip;"
-          className="h-12 border-transparent bg-card/60 pl-9 text-base ring-4 ring-foreground/15 backdrop-blur-md placeholder:text-sm focus-visible:border-transparent focus-visible:ring-4 focus-visible:ring-foreground/30"
+          className="text-base placeholder:text-sm"
           aria-label="Search places"
         />
-      </div>
+        <InputGroupAddon align="inline-end">
+          <div className="flex size-4 items-center justify-center">
+            {loading && <Spinner />}
+          </div>
+        </InputGroupAddon>
+      </InputGroup>
 
       <div className="flex flex-wrap gap-2">
         {topCategories.map((cat) => {
@@ -158,7 +166,7 @@ export function SearchExperience({
       {nextCursor && !loading && (
         <div className="flex justify-center pt-2">
           <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
-            {loadingMore && <Loader2 className="size-4 animate-spin" />}
+            {loadingMore && <Spinner />}
             Load more
           </Button>
         </div>
