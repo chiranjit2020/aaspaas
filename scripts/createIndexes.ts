@@ -92,6 +92,12 @@ async function main() {
   await places.createIndex({ status: 1, createdAt: 1 }, { name: "status_createdAt" });
   console.log("  places: (status, createdAt asc) for the moderation queue (addition beyond §1.4)");
 
+  // M4 addition — same reasoning as places above: place_edits' §1.4 index
+  // leads with placeId (for a single place's edit history), not status (for
+  // the moderation queue's "all pending edits across every place" query).
+  await placeEdits.createIndex({ status: 1, createdAt: 1 }, { name: "status_createdAt" });
+  console.log("  place_edits: (status, createdAt asc) for the moderation queue (addition beyond §1.4)");
+
   await client.close();
   console.log("Done.");
 }

@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, Phone, ThumbsDown, ThumbsUp, ArrowLeft, Navigation } from "lucide-react";
+import { MapPin, Phone, ArrowLeft, Navigation } from "lucide-react";
 import { getPlaceById } from "@/lib/places/getPlaceById";
+import { getUserVoteForPlace } from "@/lib/places/getUserVoteForPlace";
+import { getCurrentUserFromCookieStore } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CategoryIcon } from "@/components/places/category-icon";
 import { ContributorAvatar } from "@/components/places/contributor-avatar";
+import { UsefulVoteButtons } from "@/components/places/useful-vote-buttons";
+import { SuggestEditSheet } from "@/components/places/suggest-edit-sheet";
+import { ReportSheet } from "@/components/places/report-sheet";
 
 interface PlacePageProps {
   params: Promise<{ id: string }>;
@@ -27,6 +32,11 @@ export default async function PlacePage({ params }: PlacePageProps) {
   const { id } = await params;
   const place = await getPlaceById(id);
   if (!place) notFound();
+
+  const session = await getCurrentUserFromCookieStore();
+  const yourVote = session ? await getUserVoteForPlace(place.id, session.sub) : null;
+  const isOwnSubmission = Boolean(session && place.contributor?.username === session.username);
+  const loginRedirectTo = `/places/${place.slug}`;
 
   // Text-based (name + address), not the stored lat/lng — exact coordinates
   // aren't exposed publicly until the geo/maps phase (Phase 4). The maps
@@ -88,19 +98,42 @@ export default async function PlacePage({ params }: PlacePageProps) {
 
         <Separator />
 
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5 text-appreciation">
-            <ThumbsUp className="size-4" />
-            {place.usefulCount} useful
-          </span>
-          <span className="flex items-center gap-1.5">
-            <ThumbsDown className="size-4" />
-            {place.notUsefulCount} not useful
-          </span>
-          {place.verificationCount > 0 && (
-            <span className="text-success">{place.verificationCount} verifications</span>
-          )}
+        <UsefulVoteButtons
+          placeId={place.id}
+          isAuthenticated={Boolean(session)}
+          isOwnSubmission={isOwnSubmission}
+          initialUsefulCount={place.usefulCount}
+          initialNotUsefulCount={place.notUsefulCount}
+          initialVote={yourVote}
+          loginRedirectTo={loginRedirectTo}
+        />
+        {place.verificationCount > 0 && (
+          <p className="text-sm text-success">{place.verificationCount} verifications</p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <SuggestEditSheet
+            placeId={place.id}
+            current={{
+              name: place.name,
+              description: place.description,
+              phone: place.phone,
+              district: place.district,
+              locality: place.locality,
+              pincode: place.pincode,
+              address: place.address,
+            }}
+            isAuthenticated={Boolean(session)}
+            loginRedirectTo={loginRedirectTo}
+          />
+          <ReportSheet
+            placeId={place.id}
+            isAuthenticated={Boolean(session)}
+            loginRedirectTo={loginRedirectTo}
+          />
         </div>
+
+        <Separator />
 
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ContributorAvatar displayName={place.contributor?.displayName ?? "Community"} />

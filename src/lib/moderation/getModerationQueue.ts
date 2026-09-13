@@ -2,13 +2,16 @@ import { ObjectId } from "mongodb";
 import { getPlacesCollection } from "@/lib/db/models/place";
 import { getCategoriesCollection } from "@/lib/db/models/category";
 import { getUsersCollection } from "@/lib/db/models/user";
+import { getPlaceEditsCollection } from "@/lib/db/models/placeEdit";
+import { getReportsCollection } from "@/lib/db/models/report";
+import type { PlaceEditDoc, ReportReason } from "@/types/domain";
 
 /**
  * Shared by GET /api/moderation/queue and the /moderation page — same
  * no-self-fetch pattern as getPlaceById/getPublicProfile.
  *
- * M3 scope only: pending PLACES. place_edits and reports don't exist as
- * collections yet (M4), so there's nothing else to queue.
+ * M4 adds pending place_edits and open reports alongside M3's pending
+ * places — all three are moderator work items, just different shapes.
  */
 export interface ModerationQueueItem {
   id: string;
@@ -30,7 +33,40 @@ export interface ModerationQueueItem {
   possibleDuplicateOf: { id: string; name: string; slug: string } | null;
 }
 
-export async function getModerationQueue(limit = 50): Promise<ModerationQueueItem[]> {
+export interface EditQueueItem {
+  id: string;
+  place: { id: string; name: string; slug: string };
+  changes: PlaceEditDoc["changes"];
+  reason?: string;
+  createdAt: string;
+  contributor: { username: string; displayName: string } | null;
+}
+
+export interface ReportQueueItem {
+  id: string;
+  place: { id: string; name: string; slug: string };
+  reason: ReportReason;
+  details?: string;
+  createdAt: string;
+  contributor: { username: string; displayName: string } | null;
+}
+
+export interface ModerationQueue {
+  places: ModerationQueueItem[];
+  edits: EditQueueItem[];
+  reports: ReportQueueItem[];
+}
+
+export async function getModerationQueue(limit = 50): Promise<ModerationQueue> {
+  const [places, edits, reports] = await Promise.all([
+    getPendingPlaces(limit),
+    getPendingEdits(limit),
+    getOpenReports(limit),
+  ]);
+  return { places, edits, reports };
+}
+
+async function getPendingPlaces(limit: number): Promise<ModerationQueueItem[]> {
   const places = await getPlacesCollection();
   const pending = await places
     .find({ status: "pending" })
@@ -94,4 +130,90 @@ export async function getModerationQueue(limit = 50): Promise<ModerationQueueIte
         : null,
     };
   });
+}
+
+async function getPendingEdits(limit: number): Promise<EditQueueItem[]> {
+  const placeEdits = await getPlaceEditsCollection();
+  const pending = await placeEdits
+    .find({ status: "pending" })
+    .sort({ createdAt: 1 })
+    .limit(limit)
+    .toArray();
+
+  if (pending.length === 0) return [];
+
+  const [places, users] = await Promise.all([getPlacesCollection(), getUsersCollection()]);
+  const placeIds = [...new Set(pending.map((e) => e.placeId.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+  const userIds = [...new Set(pending.map((e) => e.userId.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+
+  const [placeDocs, userDocs] = await Promise.all([
+    places.find({ _id: { $in: placeIds } }, { projection: { name: 1, slug: 1 } }).toArray(),
+    users.find({ _id: { $in: userIds } }, { projection: { username: 1, displayName: 1 } }).toArray(),
+  ]);
+  const placesById = new Map(placeDocs.map((p) => [p._id.toHexString(), p]));
+  const usersById = new Map(userDocs.map((u) => [u._id.toHexString(), u]));
+
+  return pending
+    .filter((edit) => placesById.has(edit.placeId.toHexString())) // skip edits on a since-deleted place
+    .map((edit) => {
+      const place = placesById.get(edit.placeId.toHexString())!;
+      const contributor = usersById.get(edit.userId.toHexString());
+      return {
+        id: edit._id.toHexString(),
+        place: { id: place._id.toHexString(), name: place.name, slug: place.slug },
+        changes: edit.changes,
+        reason: edit.reason,
+        createdAt: edit.createdAt.toISOString(),
+        contributor: contributor
+          ? { username: contributor.username, displayName: contributor.displayName }
+          : null,
+      };
+    });
+}
+
+async function getOpenReports(limit: number): Promise<ReportQueueItem[]> {
+  const reports = await getReportsCollection();
+  const open = await reports
+    .find({ status: { $in: ["open", "reviewing"] } })
+    .sort({ createdAt: 1 })
+    .limit(limit)
+    .toArray();
+
+  if (open.length === 0) return [];
+
+  const [places, users] = await Promise.all([getPlacesCollection(), getUsersCollection()]);
+  const placeIds = [...new Set(open.map((r) => r.placeId.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+  const userIds = [...new Set(open.map((r) => r.userId.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+
+  const [placeDocs, userDocs] = await Promise.all([
+    places.find({ _id: { $in: placeIds } }, { projection: { name: 1, slug: 1 } }).toArray(),
+    users.find({ _id: { $in: userIds } }, { projection: { username: 1, displayName: 1 } }).toArray(),
+  ]);
+  const placesById = new Map(placeDocs.map((p) => [p._id.toHexString(), p]));
+  const usersById = new Map(userDocs.map((u) => [u._id.toHexString(), u]));
+
+  return open
+    .filter((report) => placesById.has(report.placeId.toHexString()))
+    .map((report) => {
+      const place = placesById.get(report.placeId.toHexString())!;
+      const contributor = usersById.get(report.userId.toHexString());
+      return {
+        id: report._id.toHexString(),
+        place: { id: place._id.toHexString(), name: place.name, slug: place.slug },
+        reason: report.reason,
+        details: report.details,
+        createdAt: report.createdAt.toISOString(),
+        contributor: contributor
+          ? { username: contributor.username, displayName: contributor.displayName }
+          : null,
+      };
+    });
 }

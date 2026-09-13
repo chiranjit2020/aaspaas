@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { assertModerator } from "@/lib/auth/requireModerator";
 import { getModerationQueue } from "@/lib/moderation/getModerationQueue";
 
-/** GET /api/moderation/queue — pending places awaiting review. */
+/** GET /api/moderation/queue — pending places, edits, and open reports awaiting review. */
 export async function GET(request: NextRequest) {
   const session = await getCurrentUser(request);
   const check = await assertModerator(session);
@@ -11,6 +11,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: check.error }, { status: check.status });
   }
 
-  const items = await getModerationQueue();
-  return NextResponse.json({ items });
+  const queue = await getModerationQueue();
+  return NextResponse.json(queue);
 }

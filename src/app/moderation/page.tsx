@@ -21,14 +21,14 @@ export default async function ModerationPage() {
     notFound();
   }
 
-  const items = await getModerationQueue();
+  const queue = await getModerationQueue();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl">
         Moderation queue
       </h1>
-      <ModerationQueue initialItems={items} />
+      <ModerationQueue initialQueue={queue} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
 import { assertModerator } from "@/lib/auth/requireModerator";
 import { getPlacesCollection } from "@/lib/db/models/place";
+import { getUsersCollection } from "@/lib/db/models/user";
 import { getModerationActionsCollection } from "@/lib/db/models/moderationAction";
 
 const rejectBodySchema = z.object({
@@ -42,6 +43,11 @@ export async function POST(
 
   if (!result) {
     return NextResponse.json({ error: "No pending place with that id." }, { status: 404 });
+  }
+
+  if (result.createdBy) {
+    const users = await getUsersCollection();
+    await users.updateOne({ _id: result.createdBy }, { $inc: { "stats.rejectedSubmissions": 1 } });
   }
 
   const moderationActions = await getModerationActionsCollection();

@@ -15,6 +15,8 @@ let mongod: MongoMemoryServer;
 let queueGET: typeof import("@/app/api/moderation/queue/route").GET;
 let approvePOST: typeof import("@/app/api/moderation/places/[id]/approve/route").POST;
 let rejectPOST: typeof import("@/app/api/moderation/places/[id]/reject/route").POST;
+let editDecisionPOST: typeof import("@/app/api/moderation/edits/[id]/route").POST;
+let resolveReportPOST: typeof import("@/app/api/moderation/reports/[id]/resolve/route").POST;
 let signAccessToken: typeof import("@/lib/auth/jwt").signAccessToken;
 let ACCESS_COOKIE: string;
 
@@ -66,6 +68,66 @@ async function insertPendingPlace(name: string) {
   return doc._id;
 }
 
+async function insertPublishedPlace(name: string) {
+  const { getPlacesCollection } = await import("@/lib/db/models/place");
+  const places = await getPlacesCollection();
+  const now = new Date();
+  const doc = {
+    _id: new ObjectId(),
+    name,
+    slug: name.toLowerCase().replace(/\s+/g, "-"),
+    categoryId,
+    phone: "9830000000",
+    district: "North 24 Parganas",
+    locality: "Habra",
+    pincode: "743263",
+    location: { type: "Point" as const, coordinates: [88.69, 22.84] as [number, number] },
+    createdBy: contributorId,
+    ownerId: null,
+    status: "published" as const,
+    spamScore: 0,
+    verificationCount: 0,
+    usefulCount: 0,
+    notUsefulCount: 0,
+    duplicateOfPlaceId: null,
+    tier: "free" as const,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await places.insertOne(doc);
+  return doc._id;
+}
+
+async function insertPendingEdit(placeId: ObjectId, userId: ObjectId) {
+  const { getPlaceEditsCollection } = await import("@/lib/db/models/placeEdit");
+  const placeEdits = await getPlaceEditsCollection();
+  const doc = {
+    _id: new ObjectId(),
+    placeId,
+    userId,
+    changes: { phone: { old: "9830000000", new: "9839999999" } },
+    status: "pending" as const,
+    createdAt: new Date(),
+  };
+  await placeEdits.insertOne(doc);
+  return doc._id;
+}
+
+async function insertOpenReport(placeId: ObjectId, userId: ObjectId) {
+  const { getReportsCollection } = await import("@/lib/db/models/report");
+  const reports = await getReportsCollection();
+  const doc = {
+    _id: new ObjectId(),
+    placeId,
+    userId,
+    reason: "wrong_info" as const,
+    status: "open" as const,
+    createdAt: new Date(),
+  };
+  await reports.insertOne(doc);
+  return doc._id;
+}
+
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
   process.env.MONGODB_URI = mongod.getUri();
@@ -75,6 +137,8 @@ beforeAll(async () => {
   ({ GET: queueGET } = await import("@/app/api/moderation/queue/route"));
   ({ POST: approvePOST } = await import("@/app/api/moderation/places/[id]/approve/route"));
   ({ POST: rejectPOST } = await import("@/app/api/moderation/places/[id]/reject/route"));
+  ({ POST: editDecisionPOST } = await import("@/app/api/moderation/edits/[id]/route"));
+  ({ POST: resolveReportPOST } = await import("@/app/api/moderation/reports/[id]/resolve/route"));
   ({ signAccessToken } = await import("@/lib/auth/jwt"));
   ({ ACCESS_COOKIE } = await import("@/lib/auth/session"));
 
@@ -179,7 +243,10 @@ describe("GET /api/moderation/queue", () => {
     const res = await queueGET(cookieRequest("http://localhost/api/moderation/queue", moderatorCookie));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.items.some((i: { name: string }) => i.name === "Queue Visible Bakery")).toBe(true);
+    expect(body.places.some((i: { name: string }) => i.name === "Queue Visible Bakery")).toBe(true);
+    // Shape check — edits/reports are M4 additions to the same queue.
+    expect(Array.isArray(body.edits)).toBe(true);
+    expect(Array.isArray(body.reports)).toBe(true);
   });
 });
 
@@ -256,5 +323,188 @@ describe("POST /api/moderation/places/[id]/reject", () => {
     const actions = await getModerationActionsCollection();
     const action = await actions.findOne({ targetId: id, action: "reject_place" });
     expect(action?.notes).toBe("looks fake");
+  });
+
+  it("increments the submitter's rejectedSubmissions stat", async () => {
+    const id = await insertPendingPlace("Stat Tracked Rejection Bakery");
+    await rejectPOST(
+      cookieRequest(`http://localhost/api/moderation/places/${id}/reject`, moderatorCookie, {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: id.toHexString() }) },
+    );
+
+    const { getUsersCollection } = await import("@/lib/db/models/user");
+    const users = await getUsersCollection();
+    const contributor = await users.findOne({ _id: contributorId });
+    expect(contributor?.stats.rejectedSubmissions).toBeGreaterThan(0);
+  });
+});
+
+describe("POST /api/moderation/edits/[id]", () => {
+  it("403s a non-moderator", async () => {
+    const placeId = await insertPublishedPlace("Edit Guard Bakery");
+    const editId = await insertPendingEdit(placeId, contributorId);
+    const res = await editDecisionPOST(
+      cookieRequest(`http://localhost/api/moderation/edits/${editId}`, contributorCookie, {
+        method: "POST",
+        body: JSON.stringify({ decision: "approve" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: editId.toHexString() }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("approving applies the change to the place and credits correctionsMade", async () => {
+    const placeId = await insertPublishedPlace("Edit Approve Bakery");
+    const editId = await insertPendingEdit(placeId, contributorId);
+    const res = await editDecisionPOST(
+      cookieRequest(`http://localhost/api/moderation/edits/${editId}`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ decision: "approve" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: editId.toHexString() }) },
+    );
+    expect(res.status).toBe(200);
+
+    const { getPlacesCollection } = await import("@/lib/db/models/place");
+    const places = await getPlacesCollection();
+    const place = await places.findOne({ _id: placeId });
+    expect(place?.phone).toBe("9839999999");
+
+    const { getPlaceEditsCollection } = await import("@/lib/db/models/placeEdit");
+    const placeEdits = await getPlaceEditsCollection();
+    const edit = await placeEdits.findOne({ _id: editId });
+    expect(edit?.status).toBe("approved");
+    expect(edit?.reviewedBy?.equals(moderatorId)).toBe(true);
+
+    const { getUsersCollection } = await import("@/lib/db/models/user");
+    const users = await getUsersCollection();
+    const contributor = await users.findOne({ _id: contributorId });
+    expect(contributor?.stats.correctionsMade).toBeGreaterThan(0);
+  });
+
+  it("rejecting leaves the place untouched", async () => {
+    const placeId = await insertPublishedPlace("Edit Reject Bakery");
+    const editId = await insertPendingEdit(placeId, contributorId);
+    const res = await editDecisionPOST(
+      cookieRequest(`http://localhost/api/moderation/edits/${editId}`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ decision: "reject" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: editId.toHexString() }) },
+    );
+    expect(res.status).toBe(200);
+
+    const { getPlacesCollection } = await import("@/lib/db/models/place");
+    const places = await getPlacesCollection();
+    const place = await places.findOne({ _id: placeId });
+    expect(place?.phone).toBe("9830000000"); // unchanged
+  });
+
+  it("404s an edit that's already been decided", async () => {
+    const placeId = await insertPublishedPlace("Edit Double Decide Bakery");
+    const editId = await insertPendingEdit(placeId, contributorId);
+    await editDecisionPOST(
+      cookieRequest(`http://localhost/api/moderation/edits/${editId}`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ decision: "approve" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: editId.toHexString() }) },
+    );
+    const second = await editDecisionPOST(
+      cookieRequest(`http://localhost/api/moderation/edits/${editId}`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ decision: "approve" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: editId.toHexString() }) },
+    );
+    expect(second.status).toBe(404);
+  });
+});
+
+describe("POST /api/moderation/reports/[id]/resolve", () => {
+  it("403s a non-moderator", async () => {
+    const placeId = await insertPublishedPlace("Report Guard Bakery");
+    const reportId = await insertOpenReport(placeId, contributorId);
+    const res = await resolveReportPOST(
+      cookieRequest(`http://localhost/api/moderation/reports/${reportId}/resolve`, contributorCookie, {
+        method: "POST",
+        body: JSON.stringify({ resolution: "kept" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: reportId.toHexString() }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("'removed' resolution takes the place down", async () => {
+    const placeId = await insertPublishedPlace("Report Removed Bakery");
+    const reportId = await insertOpenReport(placeId, contributorId);
+    const res = await resolveReportPOST(
+      cookieRequest(`http://localhost/api/moderation/reports/${reportId}/resolve`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ resolution: "removed" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: reportId.toHexString() }) },
+    );
+    expect(res.status).toBe(200);
+
+    const { getPlacesCollection } = await import("@/lib/db/models/place");
+    const places = await getPlacesCollection();
+    const place = await places.findOne({ _id: placeId });
+    expect(place?.status).toBe("removed");
+
+    const { getReportsCollection } = await import("@/lib/db/models/report");
+    const reports = await getReportsCollection();
+    const report = await reports.findOne({ _id: reportId });
+    expect(report?.status).toBe("resolved");
+    expect(report?.resolution).toBe("removed");
+  });
+
+  it("'kept' resolution leaves the place published", async () => {
+    const placeId = await insertPublishedPlace("Report Kept Bakery");
+    const reportId = await insertOpenReport(placeId, contributorId);
+    await resolveReportPOST(
+      cookieRequest(`http://localhost/api/moderation/reports/${reportId}/resolve`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ resolution: "kept" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: reportId.toHexString() }) },
+    );
+
+    const { getPlacesCollection } = await import("@/lib/db/models/place");
+    const places = await getPlacesCollection();
+    const place = await places.findOne({ _id: placeId });
+    expect(place?.status).toBe("published");
+  });
+
+  it("404s a report that's already resolved", async () => {
+    const placeId = await insertPublishedPlace("Report Double Resolve Bakery");
+    const reportId = await insertOpenReport(placeId, contributorId);
+    await resolveReportPOST(
+      cookieRequest(`http://localhost/api/moderation/reports/${reportId}/resolve`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ resolution: "kept" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: reportId.toHexString() }) },
+    );
+    const second = await resolveReportPOST(
+      cookieRequest(`http://localhost/api/moderation/reports/${reportId}/resolve`, moderatorCookie, {
+        method: "POST",
+        body: JSON.stringify({ resolution: "kept" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: reportId.toHexString() }) },
+    );
+    expect(second.status).toBe(404);
   });
 });
