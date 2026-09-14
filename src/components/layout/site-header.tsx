@@ -25,20 +25,27 @@ export async function SiteHeader() {
             alt="AasPaas — Discover what's around you"
             width={809}
             height={237}
-            className="h-10 w-auto"
+            // ~30% of the mobile header width instead of the ~40% a flat
+            // h-10 worked out to — h-8 up to the sm breakpoint, back to the
+            // original h-10 once there's room to spare.
+            className="h-8 w-auto sm:h-10"
             priority
           />
         </Link>
 
         <nav className="flex items-center gap-2">
+          {/* Always visible, logged in or not — /add-place itself redirects
+              a logged-out visitor to /login?next=/add-place, so this is a
+              real entry point for someone who hasn't signed up yet, not just
+              a shortcut for existing contributors. */}
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/add-place">
+              <Plus />
+              Add Place
+            </Link>
+          </Button>
           {session ? (
             <>
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/add-place">
-                  <Plus />
-                  Add a place
-                </Link>
-              </Button>
               {isModerator && (
                 <Button asChild variant="ghost" size="sm">
                   <Link href="/moderation">

@@ -14,7 +14,7 @@
  *
  *   Token          Color              Job
  *   -------------  -----------------  ------------------------------------
- *   foreground/bg  Ghost White/#101010  Foundation / primary content
+ *   foreground/bg  Ghost White/#000000  Foundation / primary content
  *   primary        Purple #8B5CF6     Discovery / AasPaas identity (brand
  *                                     actions: primary buttons, active nav)
  *   location       Blue #3B82F6       Location / information (locality,
@@ -43,8 +43,8 @@
  *   duration-500/700        reserved for achievement moments (Phase 5)
  *   Never: permanent bouncing, constant gradients, particles, autoplay.
  *
- * The two neutrals (Ghost White, #101010) swap roles between themes: Ghost
- * White is the light-mode background / dark-mode text, #101010 the dark-mode
+ * The two neutrals (Ghost White, #000000) swap roles between themes: Ghost
+ * White is the light-mode background / dark-mode text, #000000 the dark-mode
  * background / light-mode text.
  */
 :root {
@@ -55,7 +55,7 @@
   --brand-light-green: #90ee90;
   --brand-orange: #ffa500;
   --brand-ghost-white: #f8f8ff;
-  --brand-foundation: #101010;
+  --brand-foundation: #000000;
   --brand-gradient: linear-gradient(
     90deg,
     var(--brand-pink) 0%,
@@ -228,6 +228,13 @@
   }
   html {
     @apply font-sans;
+    /* Scrollbar stays fully functional (wheel/touch/keyboard scrolling all
+       still work) — just not painted, for a more native-app feel. */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* old Edge/IE */
+  }
+  html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, new Edge */
   }
   h1,
   h2,

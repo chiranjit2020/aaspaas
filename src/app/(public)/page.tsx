@@ -42,7 +42,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       />
 
       <div className="mb-10 flex flex-col items-center gap-4 text-center">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        {/* clamp() keeps this on one line at any mobile width — Playfair
+            Display is wide enough per character that a fixed text-3xl wraps
+            on narrow phones. sm:text-4xl takes back over once there's
+            width to spare and the clamp would otherwise just plateau. */}
+        <h1 className="text-[clamp(1.05rem,5.2vw,1.75rem)] font-bold tracking-tight whitespace-nowrap sm:text-4xl">
           Discover what&rsquo;s around you
         </h1>
         <p className="max-w-xl text-muted-foreground">

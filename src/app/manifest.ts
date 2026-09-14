@@ -11,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "A community-powered directory of local shops, services and places — added, verified and corrected by the people who actually use them.",
     start_url: "/",
     display: "standalone",
-    background_color: "#101010",
-    theme_color: "#101010",
+    background_color: "#000000",
+    theme_color: "#000000",
     icons: [
       {
         src: "/icons/icon-192.png",
