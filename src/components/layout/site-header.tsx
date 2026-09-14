@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Plus, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { getCurrentUserFromCookieStore } from "@/lib/auth/session";
 
 // Wordmark only — no monogram/pin icon in the header, per brand direction.
@@ -25,15 +26,18 @@ export async function SiteHeader() {
             alt="AasPaas — Discover what's around you"
             width={809}
             height={237}
-            // ~30% of the mobile header width instead of the ~40% a flat
-            // h-10 worked out to — h-8 up to the sm breakpoint, back to the
+            // ~38% of the mobile header width — h-8 (~30%) read as shrunk
+            // too far; h-[38px] up to the sm breakpoint, back to the
             // original h-10 once there's room to spare.
-            className="h-8 w-auto sm:h-10"
+            className="h-[38px] w-auto sm:h-10"
             priority
           />
         </Link>
 
-        <nav className="flex items-center gap-2">
+        {/* Full inline row from sm up — collapses behind MobileNav's
+            hamburger below that, rather than cramming every CTA into a
+            phone-width header. */}
+        <nav className="hidden items-center gap-2 sm:flex">
           {/* Always visible, logged in or not — /add-place itself redirects
               a logged-out visitor to /login?next=/add-place, so this is a
               real entry point for someone who hasn't signed up yet, not just
@@ -73,6 +77,12 @@ export async function SiteHeader() {
             </>
           )}
         </nav>
+
+        <MobileNav
+          isLoggedIn={Boolean(session)}
+          username={session?.username}
+          isModerator={Boolean(isModerator)}
+        />
       </div>
     </header>
   );
