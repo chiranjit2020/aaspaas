@@ -90,7 +90,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-nunito-sans);
+  --font-sans: var(--font-manrope);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-heading: var(--font-playfair-display);
   --color-sidebar-ring: var(--sidebar-ring);

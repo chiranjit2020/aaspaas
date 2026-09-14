@@ -26,7 +26,7 @@ Orange       → discovery / activity
 Typography:
 
 **Playfair Display** → brand headlines / emotional statements
-**Nunito** → UI / body / forms / data
+**Manrope** → UI / body / forms / data
 
 That's a good combination: **human editorial personality + friendly modern interface.**
 
