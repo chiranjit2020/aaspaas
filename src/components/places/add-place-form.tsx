@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, MapPin, TriangleAlert } from "lucide-react";
+import { CheckCircle2, LocateFixed, MapPin, TriangleAlert } from "lucide-react";
 import type { CategorySummary } from "@/lib/db/serialize";
 import type { DuplicateMatch } from "@/lib/trust/duplicateDetection";
 
@@ -47,9 +47,44 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [possibleDuplicates, setPossibleDuplicates] = useState<DuplicateMatch[] | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [coordsSource, setCoordsSource] = useState<"auto" | "manual" | null>(null);
+  const [manualEntry, setManualEntry] = useState(false);
 
   function set<K extends keyof typeof EMPTY_FORM>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function useCurrentLocation() {
+    setLocationError(null);
+    if (!("geolocation" in navigator)) {
+      setLocationError("Your browser doesn't support location. Enter coordinates manually below.");
+      setManualEntry(true);
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((prev) => ({
+          ...prev,
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
+        }));
+        setCoordsSource("auto");
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setLocationError(
+          err.code === err.PERMISSION_DENIED
+            ? "Location access was denied. Enter coordinates manually below."
+            : "Couldn't get your location. Enter coordinates manually below.",
+        );
+        setManualEntry(true);
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
   }
 
   async function submit(acknowledgeDuplicates: boolean) {
@@ -88,6 +123,8 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
       setPossibleDuplicates(null);
       setSuccess(`${form.name} was submitted and is now pending review.`);
       setForm(EMPTY_FORM);
+      setCoordsSource(null);
+      setManualEntry(false);
       router.refresh(); // updates the "Your submissions" list below
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't submit that place. Try again.");
@@ -98,6 +135,10 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!form.lat || !form.lng) {
+      setError("Add a location — use your current location or enter coordinates manually.");
+      return;
+    }
     submit(false);
   }
 
@@ -227,39 +268,93 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="lat">Latitude</Label>
-          <Input
-            id="lat"
-            type="number"
-            step="any"
-            min={-90}
-            max={90}
-            value={form.lat}
-            onChange={(e) => set("lat", e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="lng">Longitude</Label>
-          <Input
-            id="lng"
-            type="number"
-            step="any"
-            min={-180}
-            max={180}
-            value={form.lng}
-            onChange={(e) => set("lng", e.target.value)}
-            required
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label>Location</Label>
+
+        {coordsSource === "auto" && form.lat && form.lng ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-white/15 bg-background px-3 py-2.5 text-sm">
+            <span className="flex items-center gap-2 text-foreground">
+              <CheckCircle2 className="size-4 text-primary" />
+              Location captured
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setCoordsSource("manual");
+                setManualEntry(true);
+              }}
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Adjust manually
+            </button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={useCurrentLocation}
+            disabled={locating}
+          >
+            {locating ? <Spinner /> : <LocateFixed />}
+            {locating ? "Getting your location…" : "Use my current location"}
+          </Button>
+        )}
+
+        {locationError && <p className="text-xs text-destructive">{locationError}</p>}
+
+        {!manualEntry && coordsSource !== "auto" && (
+          <button
+            type="button"
+            onClick={() => setManualEntry(true)}
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Enter coordinates manually instead
+          </button>
+        )}
+
+        {manualEntry && (
+          <div className="space-y-1.5 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="lat">Latitude</Label>
+                <Input
+                  id="lat"
+                  type="number"
+                  step="any"
+                  min={-90}
+                  max={90}
+                  value={form.lat}
+                  onChange={(e) => {
+                    setCoordsSource("manual");
+                    set("lat", e.target.value);
+                  }}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="lng">Longitude</Label>
+                <Input
+                  id="lng"
+                  type="number"
+                  step="any"
+                  min={-180}
+                  max={180}
+                  value={form.lng}
+                  onChange={(e) => {
+                    setCoordsSource("manual");
+                    set("lng", e.target.value);
+                  }}
+                  required
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Open the place on a map, then copy the latitude/longitude from the URL.
+            </p>
+          </div>
+        )}
       </div>
-      <p className="text-xs text-muted-foreground">
-        Approximate coordinates are fine — open the place on a map, then copy the
-        latitude/longitude from the URL. Pin-and-drop map picking lands in a later
-        milestone.
-      </p>
 
       {error && (
         <Alert variant="destructive">

@@ -47,6 +47,7 @@ const ICONS: Record<string, LucideIcon> = {
   pencil: Pencil,
   pill: Pill,
   bike: Bike,
+  "help-circle": HelpCircle,
 };
 
 export function CategoryIcon({ name, className }: { name: string; className?: string }) {

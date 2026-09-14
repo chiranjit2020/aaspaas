@@ -159,6 +159,13 @@ const CATEGORIES: CategorySeed[] = [
     synonyms: ["salon", "parlour", "barber", "haircut"],
     parentSlug: "services",
   },
+  {
+    slug: "other-service",
+    name: "Other",
+    icon: "help-circle",
+    synonyms: ["other", "other service", "miscellaneous", "general service"],
+    parentSlug: "services",
+  },
 
   { slug: "education", name: "Education", icon: "graduation-cap", synonyms: ["education"] },
   {
