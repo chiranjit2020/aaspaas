@@ -42,16 +42,16 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       />
 
       <div className="mb-10 flex flex-col items-center gap-4 text-center">
-        {/* clamp() keeps this on one line at any mobile width — Playfair
-            Display is wide enough per character that a fixed text-3xl wraps
-            on narrow phones. sm:text-4xl takes back over once there's
-            width to spare and the clamp would otherwise just plateau. */}
-        <h1 className="text-[clamp(1.05rem,5.2vw,1.75rem)] font-bold tracking-tight whitespace-nowrap sm:text-4xl">
-          Discover what&rsquo;s around you
+        {/* Two short sentences now, not one five-word phrase — long enough
+            that forcing it onto a single mobile line (the old clamp()/
+            nowrap treatment) would mean an unreadably tiny font. Normal
+            wrapping is the right call at this length. */}
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          Discover what&rsquo;s around you. Add what&rsquo;s missing.
         </h1>
         <p className="max-w-xl text-muted-foreground">
-          A local directory built by the community &mdash; shops, restaurants, repair
-          services and more, added and verified by the people who actually use them.
+          Find local shops, restaurants, services and more &mdash; or add a place
+          to help your neighbourhood grow.
         </p>
       </div>
 
