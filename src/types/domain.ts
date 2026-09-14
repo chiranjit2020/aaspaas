@@ -40,6 +40,14 @@ export interface UserDoc {
     spamReportsAgainst: number;
   };
   accountStatus: AccountStatus;
+  /**
+   * Set when a place submission or edit proposal scores in spamScore.ts's
+   * top tier (76-100) — a temporary, automatic penalty on *future*
+   * submissions, never a suspension/ban (per §2.2: "the score routes a
+   * submission. It never bans, suspends, or deletes an account."). Cleared
+   * by the passage of time, not by a moderator action.
+   */
+  submissionCooldownUntil?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt?: Date;
@@ -107,10 +115,20 @@ export interface PlaceDoc {
   ownerId: ObjectId | null;
   status: PlaceStatus;
   spamScore: number;
+  /** computeSpamScore's human-readable reasons at submission time — the moderator watchlist's whole point. */
+  spamReasons?: string[];
   verificationCount: number;
   usefulCount: number;
   notUsefulCount: number;
   duplicateOfPlaceId?: ObjectId | null;
+  /**
+   * Set by a moderator from the spam-score watchlist (§2.2's 21-50 band —
+   * "published, flagged=true") once they've looked at it and decided it's
+   * fine. Clears the item from the watchlist without touching spamScore
+   * itself, which stays as an honest historical record for audit. Absent
+   * (not just falsy) means "never reviewed."
+   */
+  spamReviewedAt?: Date | null;
   /** Reserved for Phase 7 (monetization). */
   tier: "free";
   createdAt: Date;
@@ -134,6 +152,13 @@ export interface PlaceEditDoc {
   reason?: string;
   status: "pending" | "approved" | "rejected";
   reviewedBy?: ObjectId;
+  /**
+   * spamScore.ts's score for this specific edit proposal — kept on the edit
+   * document, not the place's own spamScore, so each document's audit trail
+   * stays scoped to the thing it actually scored (see M5's commit notes for
+   * why this reads as a deliberate call, not an oversight).
+   */
+  spamScore?: number;
   createdAt: Date;
 }
 

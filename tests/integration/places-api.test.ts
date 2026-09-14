@@ -89,7 +89,14 @@ beforeAll(async () => {
       spamReportsAgainst: 0,
     },
     accountStatus: "active",
-    createdAt: new Date(),
+    // Old and clean on purpose: M5's spamScore.ts scores a brand-new account
+    // +20 on age alone (see spamScoring.test.ts), which would make these
+    // auth/association/duplicate-detection tests' outcomes depend on
+    // spam-scoring incidentally. An old, verified account keeps its baseline
+    // score at (or near) 0 so status stays predictable here; the actual
+    // spam-scoring behavior gets its own dedicated tests in
+    // spam-score-api.test.ts.
+    createdAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(),
   });
 
@@ -119,17 +126,17 @@ describe("POST /api/places — auth protection", () => {
 });
 
 describe("POST /api/places — contributor association", () => {
-  it("derives createdBy from the session, sets status pending", async () => {
+  it("derives createdBy from the session; a clean submission from an established account auto-publishes", async () => {
     const res = await POST(postRequest(PLACE_INPUT, sessionCookie));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.status).toBe("pending");
+    expect(body.status).toBe("published");
 
     const { getPlacesCollection } = await import("@/lib/db/models/place");
     const places = await getPlacesCollection();
     const doc = await places.findOne({ _id: new ObjectId(body.id) });
     expect(doc?.createdBy?.equals(userId)).toBe(true);
-    expect(doc?.status).toBe("pending");
+    expect(doc?.status).toBe("published");
   });
 
   it("ignores a client-supplied createdBy — the session always wins", async () => {
@@ -158,22 +165,67 @@ describe("POST /api/places — contributor association", () => {
     expect(doc?.createdBy?.toHexString()).not.toBe(spoofedId);
   });
 
-  it("keeps a pending submission out of public browse/search", async () => {
+  it("keeps a non-published (spam-flagged) submission out of public browse/search", async () => {
+    // A dedicated, brand-new, unverified user with spammy content — reliably
+    // scores well above auto-publish (see spamScoring.test.ts's own coverage
+    // of this exact shape of input) regardless of anything else this file's
+    // shared user has submitted before this test runs.
+    const { getUsersCollection } = await import("@/lib/db/models/user");
+    const users = await getUsersCollection();
+    const spammyUserId = new ObjectId();
+    await users.insertOne({
+      _id: spammyUserId,
+      displayName: "Spammy User",
+      username: "spammyuser",
+      email: "spammy@example.com",
+      emailVerified: false,
+      passwordHash: "irrelevant-for-this-test",
+      roles: ["CONTRIBUTOR"],
+      reputationLevel: "newcomer",
+      stats: {
+        placesAdded: 0,
+        placesVerified: 0,
+        correctionsMade: 0,
+        reportsFiled: 0,
+        usefulVotesReceived: 0,
+        rejectedSubmissions: 0,
+        spamReportsAgainst: 0,
+      },
+      accountStatus: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const spammyToken = await signAccessToken({
+      sub: spammyUserId.toHexString(),
+      username: "spammyuser",
+      roles: ["CONTRIBUTOR"],
+      emailVerified: false,
+    });
+
     const res = await POST(
       postRequest(
-        { ...PLACE_INPUT, name: "Should Stay Hidden Shop", acknowledgeDuplicates: true },
-        sessionCookie,
+        {
+          ...PLACE_INPUT,
+          name: "SHOULD STAY HIDDEN SHOP",
+          description: "100% free gift, click here now! www.spam-example.com",
+          lat: 23.1,
+          lng: 88.95, // far from every other coordinate in this file
+          acknowledgeDuplicates: true,
+        },
+        `${ACCESS_COOKIE}=${spammyToken}`,
       ),
     );
     expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.status).not.toBe("published");
 
     const listRes = await GET(
       new NextRequest("http://localhost/api/places?locality=Habra&limit=50"),
     );
     const list = await listRes.json();
-    expect(list.items.some((p: { name: string }) => p.name === "Should Stay Hidden Shop")).toBe(
-      false,
-    );
+    expect(
+      list.items.some((p: { name: string }) => p.name === "SHOULD STAY HIDDEN SHOP"),
+    ).toBe(false);
   });
 });
 

@@ -6,6 +6,8 @@ import { getUsefulVotesCollection } from "@/lib/db/models/usefulVote";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { usefulVoteInputSchema } from "@/lib/validation/usefulVote";
 import { computeVoteTransition } from "@/lib/trust/voteTransition";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { VOTE_DAILY_LIMIT, ONE_DAY_MS } from "@/lib/rateLimit/tiers";
 
 /**
  * POST /api/places/[id]/useful — cast, switch, or toggle off a
@@ -21,6 +23,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const session = await getCurrentUser(request);
   if (!session) {
     return NextResponse.json({ error: "You must be logged in to vote." }, { status: 401 });
+  }
+
+  const rate = await checkRateLimit({
+    key: `vote:${session.sub}`,
+    limit: VOTE_DAILY_LIMIT,
+    windowMs: ONE_DAY_MS,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Daily vote limit reached (${VOTE_DAILY_LIMIT}/day). Try again tomorrow.` },
+      { status: 429 },
+    );
   }
 
   const { id } = await params;

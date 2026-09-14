@@ -68,7 +68,11 @@ beforeAll(async () => {
       spamReportsAgainst: 0,
     },
     accountStatus: "active" as const,
-    createdAt: new Date(),
+    // Old on purpose — see places-api.test.ts's identical comment: M5's
+    // spamScore.ts scores a brand-new account +20 on age alone, which would
+    // make a "clean edit" here land on the watchlist boundary instead of
+    // auto-approving.
+    createdAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(),
   };
 
@@ -145,14 +149,14 @@ describe("PATCH /api/places/[id] — propose an edit", () => {
     expect(res.status).toBe(404);
   });
 
-  it("creates a pending edit with only the changed fields, place untouched", async () => {
+  it("records only the changed fields, and a clean low-risk edit auto-applies immediately", async () => {
     const res = await PATCH(
       patchRequest({ phone: "9831111111", locality: "Habra", reason: "number changed" }, sessionCookie),
       { params: Promise.resolve({ id: placeId.toHexString() }) },
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.status).toBe("pending");
+    expect(body.status).toBe("approved");
 
     const { getPlaceEditsCollection } = await import("@/lib/db/models/placeEdit");
     const placeEdits = await getPlaceEditsCollection();
@@ -161,11 +165,17 @@ describe("PATCH /api/places/[id] — propose an edit", () => {
     expect(edit?.reason).toBe("number changed");
     // locality matched the current value, so it's dropped from the diff.
     expect(edit?.changes).toEqual({ phone: { old: "9830000000", new: "9831111111" } });
+    expect(edit?.spamScore).toBeLessThanOrEqual(20);
 
     const { getPlacesCollection } = await import("@/lib/db/models/place");
     const places = await getPlacesCollection();
     const place = await places.findOne({ _id: placeId });
-    expect(place?.phone).toBe("9830000000"); // unchanged until a moderator approves
+    expect(place?.phone).toBe("9831111111"); // applied immediately — low enough risk to auto-approve
+
+    const { getUsersCollection } = await import("@/lib/db/models/user");
+    const users = await getUsersCollection();
+    const editor = await users.findOne({ _id: editorId });
+    expect(editor?.stats.correctionsMade).toBeGreaterThan(0);
   });
 });
 
@@ -185,6 +195,6 @@ describe("GET /api/places/[id]/edits — edit history", () => {
     const body = await res.json();
     expect(body.items.length).toBeGreaterThan(0);
     expect(body.items[0].contributor.username).toBe("correctoruser");
-    expect(body.items[0].status).toBe("pending");
+    expect(body.items[0].status).toBe("approved");
   });
 });

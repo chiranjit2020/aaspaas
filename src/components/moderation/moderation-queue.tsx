@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, X, MapPin, TriangleAlert, Pencil, Flag } from "lucide-react";
+import { Check, X, MapPin, TriangleAlert, Pencil, Flag, Eye, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import type {
   ModerationQueue as ModerationQueueData,
   ModerationQueueItem,
   ReportQueueItem,
+  WatchlistItem,
 } from "@/lib/moderation/getModerationQueue";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-IN", {
@@ -55,6 +56,7 @@ export function ModerationQueue({ initialQueue }: { initialQueue: ModerationQueu
   const [places, setPlaces] = useState(initialQueue.places);
   const [edits, setEdits] = useState(initialQueue.edits);
   const [reports, setReports] = useState(initialQueue.reports);
+  const [watchlist, setWatchlist] = useState(initialQueue.watchlist);
 
   return (
     <Tabs defaultValue="places">
@@ -62,6 +64,7 @@ export function ModerationQueue({ initialQueue }: { initialQueue: ModerationQueu
         <TabsTrigger value="places">Places ({places.length})</TabsTrigger>
         <TabsTrigger value="edits">Edits ({edits.length})</TabsTrigger>
         <TabsTrigger value="reports">Reports ({reports.length})</TabsTrigger>
+        <TabsTrigger value="watchlist">Watchlist ({watchlist.length})</TabsTrigger>
       </TabsList>
       <TabsContent value="places" className="pt-4">
         <PlacesTab items={places} setItems={setPlaces} />
@@ -71,6 +74,9 @@ export function ModerationQueue({ initialQueue }: { initialQueue: ModerationQueu
       </TabsContent>
       <TabsContent value="reports" className="pt-4">
         <ReportsTab items={reports} setItems={setReports} />
+      </TabsContent>
+      <TabsContent value="watchlist" className="pt-4">
+        <WatchlistTab items={watchlist} setItems={setWatchlist} />
       </TabsContent>
     </Tabs>
   );
@@ -382,6 +388,123 @@ function ReportsTab({
                   <Button
                     variant="destructive"
                     onClick={() => handleResolve(item.id, "removed")}
+                    disabled={pendingId === item.id}
+                    className="flex-1"
+                  >
+                    {pendingId === item.id ? <Spinner /> : <X />}
+                    Remove place
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function WatchlistTab({
+  items,
+  setItems,
+}: {
+  items: WatchlistItem[];
+  setItems: React.Dispatch<React.SetStateAction<WatchlistItem[]>>;
+}) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  async function handleAction(id: string, action: "dismiss" | "remove") {
+    setPendingId(id);
+    setErrors((prev) => ({ ...prev, [id]: "" }));
+    try {
+      const res = await fetch(`/api/moderation/watchlist/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "That didn't work. Try again.");
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : "That didn't work. Try again.",
+      }));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">Nothing flagged for review.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground">
+        {items.length} live listing{items.length === 1 ? "" : "s"} flagged by the spam score —
+        these are already public, just worth a look.
+      </p>
+      <ul className="space-y-4">
+        {items.map((item) => (
+          <li key={item.id}>
+            <Card>
+              <CardContent className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 font-semibold leading-snug">
+                      <ShieldAlert className="size-4 shrink-0 text-warning" />
+                      <Link href={`/places/${item.slug}`} className="hover:underline">
+                        {item.name}
+                      </Link>
+                    </div>
+                    <Badge variant="secondary" className="mt-1.5 gap-1 font-normal">
+                      <CategoryIcon name={item.category.icon} className="size-3.5" />
+                      {item.category.name}
+                    </Badge>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {DATE_FORMAT.format(new Date(item.createdAt))}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <MapPin className="size-3.5 shrink-0 text-location" />
+                  {item.locality}, {item.district} &mdash; {item.pincode}
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-warning">
+                  <TriangleAlert className="size-3.5 shrink-0" />
+                  Spam score: {item.spamScore}/100
+                </div>
+                {item.spamReasons.length > 0 && (
+                  <ul className="list-inside list-disc text-xs text-muted-foreground">
+                    {item.spamReasons.map((reason, i) => (
+                      <li key={i}>{reason}</li>
+                    ))}
+                  </ul>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Submitted by <Contributor contributor={item.contributor} />
+                </p>
+
+                {errors[item.id] && <p className="text-sm text-destructive">{errors[item.id]}</p>}
+
+                <div className="flex gap-3 pt-1">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleAction(item.id, "dismiss")}
+                    disabled={pendingId === item.id}
+                    className="flex-1"
+                  >
+                    {pendingId === item.id ? <Spinner /> : <Eye />}
+                    Looks fine
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleAction(item.id, "remove")}
                     disabled={pendingId === item.id}
                     className="flex-1"
                   >

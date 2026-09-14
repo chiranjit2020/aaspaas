@@ -51,19 +51,35 @@ export interface ReportQueueItem {
   contributor: { username: string; displayName: string } | null;
 }
 
+export interface WatchlistItem {
+  id: string;
+  name: string;
+  slug: string;
+  category: { name: string; icon: string };
+  district: string;
+  locality: string;
+  pincode: string;
+  createdAt: string;
+  contributor: { username: string; displayName: string } | null;
+  spamScore: number;
+  spamReasons: string[];
+}
+
 export interface ModerationQueue {
   places: ModerationQueueItem[];
   edits: EditQueueItem[];
   reports: ReportQueueItem[];
+  watchlist: WatchlistItem[];
 }
 
 export async function getModerationQueue(limit = 50): Promise<ModerationQueue> {
-  const [places, edits, reports] = await Promise.all([
+  const [places, edits, reports, watchlist] = await Promise.all([
     getPendingPlaces(limit),
     getPendingEdits(limit),
     getOpenReports(limit),
+    getWatchlist(limit),
   ]);
-  return { places, edits, reports };
+  return { places, edits, reports, watchlist };
 }
 
 async function getPendingPlaces(limit: number): Promise<ModerationQueueItem[]> {
@@ -173,6 +189,63 @@ async function getPendingEdits(limit: number): Promise<EditQueueItem[]> {
           : null,
       };
     });
+}
+
+/**
+ * §2.2's 21-50 spam-score band: "published, flagged=true (appears on a
+ * moderator watchlist)." There's no separate boolean field for this — the
+ * spamScore itself, still on the document for audit, IS the flag. A
+ * moderator dismissing an item sets spamReviewedAt so it drops off without
+ * touching that historical score.
+ */
+async function getWatchlist(limit: number): Promise<WatchlistItem[]> {
+  const places = await getPlacesCollection();
+  const flagged = await places
+    .find({
+      status: "published",
+      spamScore: { $gte: 21, $lte: 50 },
+      spamReviewedAt: { $exists: false },
+    })
+    .sort({ createdAt: 1 })
+    .limit(limit)
+    .toArray();
+
+  if (flagged.length === 0) return [];
+
+  const categoryIds = [...new Set(flagged.map((p) => p.categoryId.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+  const contributorIds = [
+    ...new Set(flagged.filter((p) => p.createdBy).map((p) => p.createdBy!.toHexString())),
+  ].map((id) => new ObjectId(id));
+
+  const [categories, users] = await Promise.all([getCategoriesCollection(), getUsersCollection()]);
+  const [categoryDocs, userDocs] = await Promise.all([
+    categories.find({ _id: { $in: categoryIds } }).toArray(),
+    users.find({ _id: { $in: contributorIds } }, { projection: { username: 1, displayName: 1 } }).toArray(),
+  ]);
+  const categoriesById = new Map(categoryDocs.map((c) => [c._id.toHexString(), c]));
+  const usersById = new Map(userDocs.map((u) => [u._id.toHexString(), u]));
+
+  return flagged.map((doc) => {
+    const category = categoriesById.get(doc.categoryId.toHexString());
+    const contributor = doc.createdBy ? usersById.get(doc.createdBy.toHexString()) : undefined;
+    return {
+      id: doc._id.toHexString(),
+      name: doc.name,
+      slug: doc.slug,
+      category: { name: category?.name ?? "Unknown", icon: category?.icon ?? "help-circle" },
+      district: doc.district,
+      locality: doc.locality,
+      pincode: doc.pincode,
+      createdAt: doc.createdAt.toISOString(),
+      contributor: contributor
+        ? { username: contributor.username, displayName: contributor.displayName }
+        : null,
+      spamScore: doc.spamScore,
+      spamReasons: doc.spamReasons ?? [],
+    };
+  });
 }
 
 async function getOpenReports(limit: number): Promise<ReportQueueItem[]> {

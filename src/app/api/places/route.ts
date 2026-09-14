@@ -9,10 +9,27 @@ import { getCategoriesCollection } from "@/lib/db/models/category";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { makeUniquePlaceSlug } from "@/lib/places/slugify";
 import { findPossibleDuplicates } from "@/lib/trust/duplicateDetection";
+import { scorePlaceSubmission } from "@/lib/trust/spamScore";
+import { isCooldownActive, cooldownRemainingMs, SPAM_REJECTION_COOLDOWN_HOURS } from "@/lib/trust/cooldown";
+import { resolveSubmissionTier, SUBMISSION_LIMITS, ONE_DAY_MS } from "@/lib/rateLimit/tiers";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { getClientIp } from "@/lib/http/clientIp";
 import type { PlaceDoc } from "@/types/domain";
 
-/** GET /api/places — browse/list, i.e. search with no free-text term. */
+/**
+ * GET /api/places — browse/list, i.e. search with no free-text term.
+ * §2.1: "Anonymous reads: 60 requests/min/IP."
+ */
 export async function GET(request: NextRequest) {
+  const rate = await checkRateLimit({
+    key: `read:${getClientIp(request)}`,
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Too many requests. Slow down and try again shortly." }, { status: 429 });
+  }
+
   const parsed = parseSearchQuery(request.nextUrl.searchParams);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid query", issues: parsed.issues }, { status: 400 });
@@ -29,15 +46,48 @@ export async function GET(request: NextRequest) {
  * "authenticated", not "email-verified"; the tiered submission limits in
  * §2.1 explicitly allow unverified accounts a (lower) daily quota).
  *
- * Always lands `pending`: spam-score auto-routing and the daily submission
- * quotas are M5 work, not this milestone. A pending place is already
- * invisible in public search/browse, since searchPlaces always filters to
- * status: "published".
+ * Status is no longer always `pending` — spamScore.ts routes it per §2.2:
+ * low risk auto-publishes, medium risk publishes onto the moderator
+ * watchlist, high risk goes to the moderation queue, and the worst tier is
+ * rejected outright with a submission cooldown. The score itself never
+ * bans/suspends an account — only a moderator action does that.
  */
 export async function POST(request: NextRequest) {
   const session = await getCurrentUser(request);
   if (!session) {
     return NextResponse.json({ error: "You must be logged in to add a place." }, { status: 401 });
+  }
+
+  const userId = new ObjectId(session.sub);
+  const users = await getUsersCollection();
+  const user = await users.findOne({ _id: userId });
+  if (!user || user.accountStatus !== "active") {
+    return NextResponse.json({ error: "You must be logged in to add a place." }, { status: 401 });
+  }
+
+  if (isCooldownActive(user.submissionCooldownUntil)) {
+    const hours = Math.ceil(cooldownRemainingMs(user.submissionCooldownUntil!) / (60 * 60 * 1000));
+    return NextResponse.json(
+      { error: `Submissions are paused on this account for about ${hours}h more.` },
+      { status: 403 },
+    );
+  }
+
+  const tier = resolveSubmissionTier({
+    emailVerified: user.emailVerified,
+    accountAgeDays: (Date.now() - user.createdAt.getTime()) / ONE_DAY_MS,
+    reputationLevel: user.reputationLevel,
+  });
+  const rate = await checkRateLimit({
+    key: `place-submit:${session.sub}`,
+    limit: SUBMISSION_LIMITS[tier],
+    windowMs: ONE_DAY_MS,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Daily submission limit reached (${SUBMISSION_LIMITS[tier]}/day). Try again tomorrow.` },
+      { status: 429 },
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -72,10 +122,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ possibleDuplicates }, { status: 409 });
   }
 
+  const { result: spamResult, routing } = await scorePlaceSubmission({
+    user,
+    name: input.name,
+    description: input.description,
+    phone: input.phone,
+    locality: input.locality,
+    pincode: input.pincode,
+    possibleDuplicates,
+  });
+
   const places = await getPlacesCollection();
   const slug = await makeUniquePlaceSlug(places, input.name);
   const now = new Date();
-  const createdBy = new ObjectId(session.sub);
 
   const doc: PlaceDoc = {
     _id: new ObjectId(),
@@ -89,10 +148,11 @@ export async function POST(request: NextRequest) {
     pincode: input.pincode,
     location: { type: "Point", coordinates: [input.lng, input.lat] },
     address: input.address,
-    createdBy,
+    createdBy: userId,
     ownerId: null,
-    status: "pending",
-    spamScore: 0,
+    status: routing.status,
+    spamScore: spamResult.score,
+    spamReasons: spamResult.reasons,
     verificationCount: 0,
     usefulCount: 0,
     notUsefulCount: 0,
@@ -105,9 +165,23 @@ export async function POST(request: NextRequest) {
   };
 
   await places.insertOne(doc);
+  await users.updateOne({ _id: userId }, { $inc: { "stats.placesAdded": 1 } });
 
-  const users = await getUsersCollection();
-  await users.updateOne({ _id: createdBy }, { $inc: { "stats.placesAdded": 1 } });
+  if (routing.status === "rejected") {
+    await users.updateOne(
+      { _id: userId },
+      { $set: { submissionCooldownUntil: new Date(now.getTime() + SPAM_REJECTION_COOLDOWN_HOURS * 60 * 60 * 1000) } },
+    );
+    return NextResponse.json(
+      {
+        id: doc._id.toHexString(),
+        slug: doc.slug,
+        status: doc.status,
+        error: "This submission was rejected and couldn't be published.",
+      },
+      { status: 201 },
+    );
+  }
 
   return NextResponse.json({ id: doc._id.toHexString(), slug: doc.slug, status: doc.status }, { status: 201 });
 }

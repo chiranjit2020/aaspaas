@@ -5,12 +5,26 @@ import { getPlacesCollection } from "@/lib/db/models/place";
 import { getReportsCollection } from "@/lib/db/models/report";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { reportInputSchema } from "@/lib/validation/report";
+import { checkRateLimit } from "@/lib/rateLimit";
+import { REPORT_DAILY_LIMIT, ONE_DAY_MS } from "@/lib/rateLimit/tiers";
 
 /** POST /api/places/[id]/report — file a "report incorrect info" against a place. */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getCurrentUser(request);
   if (!session) {
     return NextResponse.json({ error: "You must be logged in to file a report." }, { status: 401 });
+  }
+
+  const rate = await checkRateLimit({
+    key: `report:${session.sub}`,
+    limit: REPORT_DAILY_LIMIT,
+    windowMs: ONE_DAY_MS,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: `Daily report limit reached (${REPORT_DAILY_LIMIT}/day). Try again tomorrow.` },
+      { status: 429 },
+    );
   }
 
   const { id } = await params;

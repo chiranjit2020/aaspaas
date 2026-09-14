@@ -89,6 +89,7 @@ tests/integration/       API routes exercised against a real mongodb-memory-serv
 ## Status
 
 M0 (scaffold + CI), M1 (data model, seed, read-only browse/search), M2 (auth,
-add-place flow), M3 (duplicate detection, moderation queue) and M4
-(contributor stats, suggest-an-edit, reports, useful votes) are done.
-Spam-score gating lands in M5 — see `07-roadmap-and-architecture.md` §4.
+add-place flow), M3 (duplicate detection, moderation queue), M4 (contributor
+stats, suggest-an-edit, reports, useful votes) and M5 (spam-score gating,
+daily rate limits, submission cooldowns, the moderation watchlist) are done.
+M6 is a pre-launch hardening pass — see `07-roadmap-and-architecture.md` §4.

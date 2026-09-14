@@ -98,6 +98,24 @@ async function main() {
   await placeEdits.createIndex({ status: 1, createdAt: 1 }, { name: "status_createdAt" });
   console.log("  place_edits: (status, createdAt asc) for the moderation queue (addition beyond §1.4)");
 
+  // M5 additions — spamScore.ts's real DB queries, none of which fit the
+  // existing indexes' prefixes.
+  await places.createIndex({ createdBy: 1, createdAt: -1 }, { name: "createdBy_createdAt" });
+  console.log("  places: (createdBy, createdAt desc) for submission-velocity scoring + contributor profiles");
+  await places.createIndex({ phone: 1 }, { name: "phone", sparse: true });
+  console.log("  places: (phone), sparse — same-phone-reuse scoring");
+  await places.createIndex({ locality: 1, status: 1 }, { name: "locality_status" });
+  console.log(
+    "  places: (locality, status) — geo-consistency scoring and duplicateDetection's locality-scoped candidate query (M3, never indexed until now)",
+  );
+  await places.createIndex(
+    { status: 1, spamScore: 1 },
+    { name: "status_spamScore", partialFilterExpression: { status: "published" } },
+  );
+  console.log("  places: (status, spamScore), partial on published — the moderator watchlist query");
+  await reports.createIndex({ placeId: 1 }, { name: "placeId" });
+  console.log("  reports: (placeId) — counting reports against a contributor's other places");
+
   await client.close();
   console.log("Done.");
 }
