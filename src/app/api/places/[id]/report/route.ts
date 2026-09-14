@@ -14,6 +14,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!session) {
     return NextResponse.json({ error: "You must be logged in to file a report." }, { status: 401 });
   }
+  // §2's "Sockpuppets / self-voting" mitigation names reports alongside
+  // votes — same JWT-claim reasoning as the useful-vote route (emailVerified
+  // only ever goes false → true, so a stale token can't falsely claim it).
+  if (!session.emailVerified) {
+    return NextResponse.json({ error: "Verify your email before filing a report." }, { status: 403 });
+  }
 
   const rate = await checkRateLimit({
     key: `report:${session.sub}`,

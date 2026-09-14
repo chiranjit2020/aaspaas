@@ -5,7 +5,10 @@ services and places — added, verified and corrected by the people who actually
 them, not by the businesses themselves.
 
 See `01-product-vision.md` through `07-roadmap-and-architecture.md` for the full
-product/architecture/security/SDLC plan. This README only covers running the code.
+product/architecture/security/SDLC plan, and `08-hardening-audit.md` for the
+pre-launch security/hardening pass (M6) that walks every mitigation in §2 and
+confirms it's actually implemented. This README only covers running the code.
+Contributing? Read `CONTRIBUTING.md` first.
 
 ## Stack
 
@@ -76,7 +79,7 @@ src/lib/email/           transactional email (Resend, with a dev console fallbac
 src/lib/moderation/      moderation queue data (pending places + duplicate hints)
 src/lib/rateLimit/       Mongo-backed fixed-window rate limiting
 src/lib/search/          parseQuery → buildQuery → rank pipeline (see §1.6)
-src/lib/trust/           duplicate detection (name similarity, proximity, phone match)
+src/lib/trust/           duplicate detection, spam scoring, submission cooldowns
 src/lib/validation/      zod schemas shared by scripts, API routes and forms
 src/components/ui/       shadcn/ui primitives
 src/components/          app-specific components (search, places, auth, moderation, layout)
@@ -90,6 +93,8 @@ tests/integration/       API routes exercised against a real mongodb-memory-serv
 
 M0 (scaffold + CI), M1 (data model, seed, read-only browse/search), M2 (auth,
 add-place flow), M3 (duplicate detection, moderation queue), M4 (contributor
-stats, suggest-an-edit, reports, useful votes) and M5 (spam-score gating,
-daily rate limits, submission cooldowns, the moderation watchlist) are done.
-M6 is a pre-launch hardening pass — see `07-roadmap-and-architecture.md` §4.
+stats, suggest-an-edit, reports, useful votes), M5 (spam-score gating, daily
+rate limits, submission cooldowns, the moderation watchlist) and M6 (pre-launch
+hardening pass) are done — see `08-hardening-audit.md` for what that pass found
+and fixed. That's the whole V1 build per `07-roadmap-and-architecture.md` §4;
+Phases 4+ (`07-roadmap-and-architecture.md` §5) are future work, not yet started.

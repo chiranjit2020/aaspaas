@@ -13,6 +13,8 @@ let ownerId: ObjectId;
 let voterId: ObjectId;
 let voterCookie: string;
 let ownerCookie: string;
+let unverifiedVoterId: ObjectId;
+let unverifiedVoterCookie: string;
 
 function voteRequest(body: unknown, cookie?: string) {
   return new NextRequest("http://localhost/api/places/x/useful", {
@@ -113,6 +115,22 @@ beforeAll(async () => {
     emailVerified: true,
   });
   voterCookie = `${ACCESS_COOKIE}=${voterToken}`;
+
+  unverifiedVoterId = new ObjectId();
+  await users.insertOne({
+    ...baseUser,
+    _id: unverifiedVoterId,
+    username: "unverifiedvoter",
+    roles: ["CONTRIBUTOR"],
+    emailVerified: false,
+  });
+  const unverifiedToken = await signAccessToken({
+    sub: unverifiedVoterId.toHexString(),
+    username: "unverifiedvoter",
+    roles: ["CONTRIBUTOR"],
+    emailVerified: false,
+  });
+  unverifiedVoterCookie = `${ACCESS_COOKIE}=${unverifiedToken}`;
 }, 60_000);
 
 afterAll(async () => {
@@ -149,6 +167,19 @@ describe("POST /api/places/[id]/useful — guards", () => {
       params: Promise.resolve({ id: placeId.toHexString() }),
     });
     expect(res.status).toBe(403);
+  });
+
+  it("blocks a vote from an unverified account — §2's sockpuppet mitigation", async () => {
+    const placeId = await insertPublishedPlace("Guard Pharmacy 4");
+    const res = await POST(voteRequest({ value: "useful" }, unverifiedVoterCookie), {
+      params: Promise.resolve({ id: placeId.toHexString() }),
+    });
+    expect(res.status).toBe(403);
+
+    const { getUsefulVotesCollection } = await import("@/lib/db/models/usefulVote");
+    const votes = await getUsefulVotesCollection();
+    const vote = await votes.findOne({ placeId, userId: unverifiedVoterId });
+    expect(vote).toBeNull();
   });
 });
 

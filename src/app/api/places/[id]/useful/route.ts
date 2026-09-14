@@ -24,6 +24,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!session) {
     return NextResponse.json({ error: "You must be logged in to vote." }, { status: 401 });
   }
+  // §2's "Sockpuppets / self-voting" mitigation explicitly requires this —
+  // votes only "count" from a verified account. The JWT's emailVerified
+  // claim is fine here (unlike moderation's fresh-DB role check): getting
+  // verified only ever narrows what a stale token can already do, it never
+  // grants a stale token more than the DB currently allows.
+  if (!session.emailVerified) {
+    return NextResponse.json({ error: "Verify your email before voting." }, { status: 403 });
+  }
 
   const rate = await checkRateLimit({
     key: `vote:${session.sub}`,

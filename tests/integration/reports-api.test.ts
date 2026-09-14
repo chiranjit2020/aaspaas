@@ -12,6 +12,7 @@ let categoryId: ObjectId;
 let placeId: ObjectId;
 let reporterId: ObjectId;
 let sessionCookie: string;
+let unverifiedCookie: string;
 
 function reportRequest(body: unknown, cookie?: string) {
   return new NextRequest("http://localhost/api/places/x/report", {
@@ -78,6 +79,22 @@ beforeAll(async () => {
   });
   sessionCookie = `${ACCESS_COOKIE}=${token}`;
 
+  const unverifiedId = new ObjectId();
+  await users.insertOne({
+    ...baseUser,
+    _id: unverifiedId,
+    username: "unverifiedreporter",
+    roles: ["CONTRIBUTOR"],
+    emailVerified: false,
+  });
+  const unverifiedToken = await signAccessToken({
+    sub: unverifiedId.toHexString(),
+    username: "unverifiedreporter",
+    roles: ["CONTRIBUTOR"],
+    emailVerified: false,
+  });
+  unverifiedCookie = `${ACCESS_COOKIE}=${unverifiedToken}`;
+
   const places = await getPlacesCollection();
   placeId = new ObjectId();
   const now = new Date();
@@ -128,6 +145,13 @@ describe("POST /api/places/[id]/report", () => {
       params: Promise.resolve({ id: new ObjectId().toHexString() }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it("blocks a report from an unverified account — §2's sockpuppet mitigation", async () => {
+    const res = await POST(reportRequest({ reason: "spam" }, unverifiedCookie), {
+      params: Promise.resolve({ id: placeId.toHexString() }),
+    });
+    expect(res.status).toBe(403);
   });
 
   it("files the report and credits the reporter's reportsFiled stat", async () => {

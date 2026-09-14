@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # §2's "Supply-chain drift" mitigation: automated dependency PRs instead of
+  # a codebase that quietly rots. Weekly, not daily — this is a solo/part-time
+  # project, and a pile of same-day PRs is worse than a batch once a week.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

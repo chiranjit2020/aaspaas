@@ -27,6 +27,12 @@ export {
  * Same locality, not already rejected/removed — a locality-scoped result set
  * is small at V1 scale (tens of places), so scoring in memory beats the
  * complexity of combining $geoNear with other filters in one aggregation.
+ *
+ * The 500 cap is a defensive ceiling, not an expected size — M6's hardening
+ * pass flagged this as the one query in the app that scales with a single
+ * locality's lifetime place count rather than a page size. If a locality
+ * ever gets that dense, a $geoNear pre-filter is the real fix; capping costs
+ * nothing now and bounds the worst case in the meantime.
  */
 export async function findPossibleDuplicates(
   input: DuplicateCandidateInput,
@@ -37,6 +43,7 @@ export async function findPossibleDuplicates(
       locality: input.locality,
       status: { $in: ["published", "pending", "flagged"] },
     })
+    .limit(500)
     .toArray();
 
   return scoreDuplicateCandidates(input, candidates);

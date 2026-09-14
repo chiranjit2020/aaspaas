@@ -36,9 +36,14 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     getCategoriesCollection(),
   ]);
 
+  // §2's "page size capped at 50" mitigation — a prolific contributor's
+  // profile shouldn't render an unbounded list on a public, unauthenticated
+  // page. 50 is generous for what's meant to be a highlights view, not a
+  // full paginated archive (that's a fine follow-up if it's ever needed).
   const placeDocs = await places
     .find({ createdBy: userId, status: "published" })
     .sort({ createdAt: -1 })
+    .limit(50)
     .toArray();
 
   const categoryDocs = await categories

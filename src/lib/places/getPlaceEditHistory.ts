@@ -29,7 +29,15 @@ export async function getPlaceEditHistory(placeId: string): Promise<PlaceEditSum
   if (!place) return null;
 
   const placeEdits = await getPlaceEditsCollection();
-  const edits = await placeEdits.find({ placeId: place._id }).sort({ createdAt: -1 }).toArray();
+  // §2's "DB scraping" mitigation ("page size capped at 50") applies here
+  // too — this is a public, unauthenticated, unpaginated endpoint, so an
+  // unbounded query would let a single place's edit history grow into an
+  // arbitrarily large response.
+  const edits = await placeEdits
+    .find({ placeId: place._id })
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .toArray();
   if (edits.length === 0) return [];
 
   const userIds = [...new Set(edits.map((e) => e.userId.toHexString()))].map((id) => new ObjectId(id));
