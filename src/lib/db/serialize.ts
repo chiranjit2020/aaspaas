@@ -26,7 +26,7 @@ export function toCategorySummary(doc: CategoryDoc): CategorySummary {
 }
 
 export function toPlaceSummary(
-  doc: PlaceDoc,
+  doc: PlaceDoc & { distanceMeters?: number },
   category: CategoryDoc | undefined,
   contributor: Contributor | null,
 ): PlaceSummary {
@@ -43,6 +43,10 @@ export function toPlaceSummary(
     phone: doc.phone,
     usefulCount: doc.usefulCount,
     notUsefulCount: doc.notUsefulCount,
+    distanceMeters: typeof doc.distanceMeters === "number" ? Math.round(doc.distanceMeters) : undefined,
+    // GeoJSON stores [lng, lat]; named fields on the client shape avoid that
+    // footgun for every consumer downstream (map components, distance math).
+    location: { lat: doc.location.coordinates[1], lng: doc.location.coordinates[0] },
     contributor,
   };
 }

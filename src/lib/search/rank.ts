@@ -5,8 +5,8 @@
  *   rankScore = text relevance + usefulCount signal + a small recency boost
  *
  * Cursor-based (not skip/limit) so pages stay fast as the collection grows: the
- * cursor encodes the last row's (rankScore, _id) tuple and the next page asks Mongo
- * for "rows that sort after this one" instead of "skip N rows".
+ * cursor encodes the last row's (sort field value, _id) tuple and the next page
+ * asks Mongo for "rows that sort after this one" instead of "skip N rows".
  *
  * Relevance comes first: a popular place must never bury a more relevant one just
  * because it has more votes. usefulCount/notUsefulCount are log-scaled for exactly
@@ -14,10 +14,25 @@
  * votes would add +1000 to a raw `usefulCount*2` term, dwarfing any plausible
  * $text score), while ln(1+n) keeps 10 votes and 500 votes only a few points
  * apart, so text relevance stays the deciding factor among matched documents.
+ *
+ * Phase 4 (Geo/Maps) added a second sort field, `distanceMeters`, for near-me
+ * radius search (see buildQuery.ts's buildGeoSearchPipeline). The cursor codec
+ * below is generic over which field a given pipeline sorts by, rather than two
+ * independent implementations, since the two modes are mutually exclusive per
+ * request and the shape (a sort value + an _id tiebreaker) is identical.
  */
 import { ObjectId, type Document } from "mongodb";
 
+export type SortField = "rankScore" | "distanceMeters";
+
+/** rankScore ranks best-first (descending); distanceMeters ranks nearest-first (ascending). */
+const SORT_DIRECTION: Record<SortField, "asc" | "desc"> = {
+  rankScore: "desc",
+  distanceMeters: "asc",
+};
+
 export const RANK_SORT: Document = { rankScore: -1, _id: 1 };
+export const DISTANCE_SORT: Document = { distanceMeters: 1, _id: 1 };
 
 /**
  * Stages that compute `rankScore` on each candidate document. Must run after the
@@ -64,7 +79,8 @@ export function buildScoringStages(usedTextSearch: boolean): Document[] {
 }
 
 export interface SearchCursor {
-  rankScore: number;
+  field: SortField;
+  value: number;
   id: string;
 }
 
@@ -76,11 +92,12 @@ export function decodeCursor(raw: string): SearchCursor | null {
   try {
     const parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
     if (
-      typeof parsed?.rankScore === "number" &&
+      (parsed?.field === "rankScore" || parsed?.field === "distanceMeters") &&
+      typeof parsed?.value === "number" &&
       typeof parsed?.id === "string" &&
       ObjectId.isValid(parsed.id)
     ) {
-      return { rankScore: parsed.rankScore, id: parsed.id };
+      return { field: parsed.field, value: parsed.value, id: parsed.id };
     }
     return null;
   } catch {
@@ -90,14 +107,15 @@ export function decodeCursor(raw: string): SearchCursor | null {
 
 /** $match stage that keeps only rows sorting strictly after the given cursor. */
 export function buildCursorMatchStage(cursor: SearchCursor): Document {
+  const op = SORT_DIRECTION[cursor.field] === "asc" ? "$gt" : "$lt";
   return {
     $match: {
       $expr: {
         $or: [
-          { $lt: ["$rankScore", cursor.rankScore] },
+          { [op]: [`$${cursor.field}`, cursor.value] },
           {
             $and: [
-              { $eq: ["$rankScore", cursor.rankScore] },
+              { $eq: [`$${cursor.field}`, cursor.value] },
               { $gt: ["$_id", new ObjectId(cursor.id)] },
             ],
           },

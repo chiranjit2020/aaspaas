@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CategoryIcon } from "./category-icon";
 import { ContributorAvatar } from "./contributor-avatar";
+import { formatDistance } from "@/lib/places/formatDistance";
 import type { PlaceSummary } from "@/types/domain";
 
 export function PlaceCard({ place }: { place: PlaceSummary }) {
@@ -30,6 +31,10 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
           <span>
             {place.locality} &middot; {place.pincode}
           </span>
+          {/* Only present on a near-me ($geoNear) search result. */}
+          {typeof place.distanceMeters === "number" && (
+            <span className="text-xs text-location">&middot; {formatDistance(place.distanceMeters)}</span>
+          )}
         </div>
         <div className="flex items-center justify-between">
           {place.phone ? (

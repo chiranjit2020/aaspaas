@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ObjectId } from "mongodb";
-import { buildSearchPipeline, MAX_PAGE_SIZE } from "@/lib/search/buildQuery";
+import { buildSearchPipeline, buildGeoSearchPipeline, MAX_PAGE_SIZE } from "@/lib/search/buildQuery";
 import { encodeCursor } from "@/lib/search/rank";
 
 describe("buildSearchPipeline", () => {
@@ -66,8 +66,8 @@ describe("buildSearchPipeline", () => {
     expect(limitStage?.$limit).toBe(2);
   });
 
-  it("adds a cursor $match stage only when a valid cursor is given", () => {
-    const cursor = encodeCursor({ rankScore: 1.5, id: new ObjectId().toHexString() });
+  it("adds a cursor $match stage only when a valid rankScore cursor is given", () => {
+    const cursor = encodeCursor({ field: "rankScore", value: 1.5, id: new ObjectId().toHexString() });
     const withCursor = buildSearchPipeline({ cursor });
     const withoutCursor = buildSearchPipeline({});
     expect(withCursor.pipeline.length).toBe(withoutCursor.pipeline.length + 1);
@@ -79,9 +79,77 @@ describe("buildSearchPipeline", () => {
     expect(pipeline.length).toBe(basePipeline.length);
   });
 
+  it("ignores a cursor built for the other pipeline's sort field", () => {
+    const cursor = encodeCursor({ field: "distanceMeters", value: 500, id: new ObjectId().toHexString() });
+    const { pipeline } = buildSearchPipeline({ cursor });
+    const { pipeline: basePipeline } = buildSearchPipeline({});
+    expect(pipeline.length).toBe(basePipeline.length);
+  });
+
   it("ends with $sort then $limit", () => {
     const { pipeline } = buildSearchPipeline({});
     expect(pipeline[pipeline.length - 2]).toHaveProperty("$sort");
+    expect(pipeline[pipeline.length - 1]).toHaveProperty("$limit");
+  });
+});
+
+describe("buildGeoSearchPipeline", () => {
+  it("puts $geoNear first, with GeoJSON [lng, lat] order", () => {
+    const { pipeline } = buildGeoSearchPipeline({ lat: 22.85, lng: 88.66, radiusMeters: 5000 });
+    const geoNear = pipeline[0].$geoNear;
+    expect(geoNear).toBeDefined();
+    expect(geoNear.near).toEqual({ type: "Point", coordinates: [88.66, 22.85] });
+    expect(geoNear.distanceField).toBe("distanceMeters");
+    expect(geoNear.spherical).toBe(true);
+    expect(geoNear.maxDistance).toBe(5000);
+  });
+
+  it("always scopes the query filter to published places", () => {
+    const { pipeline } = buildGeoSearchPipeline({ lat: 0, lng: 0, radiusMeters: 1000 });
+    expect(pipeline[0].$geoNear.query.status).toBe("published");
+  });
+
+  it("never uses $text, even for free text of 3+ characters — $geoNear forbids it", () => {
+    const { pipeline } = buildGeoSearchPipeline({
+      lat: 0,
+      lng: 0,
+      radiusMeters: 1000,
+      freeText: "electronics repair",
+    });
+    const query = pipeline[0].$geoNear.query;
+    expect(query.$text).toBeUndefined();
+    expect(query.name).toEqual({ $regex: "^electronics repair", $options: "i" });
+  });
+
+  it("filters by locality/district, pincode, and categoryId inside the $geoNear query", () => {
+    const categoryId = new ObjectId().toHexString();
+    const { pipeline } = buildGeoSearchPipeline({
+      lat: 0,
+      lng: 0,
+      radiusMeters: 1000,
+      locality: "Habra",
+      pincode: "743263",
+      categoryId,
+    });
+    const query = pipeline[0].$geoNear.query;
+    expect(query.$or).toEqual([{ district: "Habra" }, { locality: "Habra" }]);
+    expect(query.pincode).toBe("743263");
+    expect(query.categoryId).toBeInstanceOf(ObjectId);
+  });
+
+  it("adds a cursor $match stage only for a matching distanceMeters cursor", () => {
+    const distanceCursor = encodeCursor({ field: "distanceMeters", value: 500, id: new ObjectId().toHexString() });
+    const rankCursor = encodeCursor({ field: "rankScore", value: 1, id: new ObjectId().toHexString() });
+    const base = buildGeoSearchPipeline({ lat: 0, lng: 0, radiusMeters: 1000 });
+    const withMatchingCursor = buildGeoSearchPipeline({ lat: 0, lng: 0, radiusMeters: 1000, cursor: distanceCursor });
+    const withMismatchedCursor = buildGeoSearchPipeline({ lat: 0, lng: 0, radiusMeters: 1000, cursor: rankCursor });
+    expect(withMatchingCursor.pipeline.length).toBe(base.pipeline.length + 1);
+    expect(withMismatchedCursor.pipeline.length).toBe(base.pipeline.length);
+  });
+
+  it("ends with a distance $sort then $limit", () => {
+    const { pipeline } = buildGeoSearchPipeline({ lat: 0, lng: 0, radiusMeters: 1000 });
+    expect(pipeline[pipeline.length - 2]).toEqual({ $sort: { distanceMeters: 1, _id: 1 } });
     expect(pipeline[pipeline.length - 1]).toHaveProperty("$limit");
   });
 });

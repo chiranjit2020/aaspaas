@@ -5,7 +5,13 @@ import { getUsersCollection } from "@/lib/db/models/user";
 import { toPlaceSummary, type Contributor } from "@/lib/db/serialize";
 import { getSearchContext } from "./context";
 import { parseQuery } from "./parseQuery";
-import { buildSearchPipeline, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./buildQuery";
+import {
+  buildSearchPipeline,
+  buildGeoSearchPipeline,
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+  DEFAULT_RADIUS_KM,
+} from "./buildQuery";
 import { encodeCursor } from "./rank";
 
 export interface SearchPlacesParams {
@@ -18,6 +24,14 @@ export interface SearchPlacesParams {
   categorySlug?: string;
   cursor?: string;
   limit?: number;
+  /**
+   * "Near me" radius search (Phase 4). Both lat and lng must be present to
+   * activate geo mode — validated one level up by searchQuerySchema's
+   * refine, not re-checked here.
+   */
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
 }
 
 export interface SearchPlacesResult {
@@ -26,6 +40,7 @@ export interface SearchPlacesResult {
 }
 
 type RankedPlaceDoc = PlaceDoc & { rankScore: number };
+type GeoPlaceDoc = PlaceDoc & { distanceMeters: number };
 
 /**
  * Shared by GET /api/places (plain browse — no `q`) and GET /api/search (free-text
@@ -45,17 +60,31 @@ export async function searchPlaces(params: SearchPlacesParams): Promise<SearchPl
 
   const limit = Math.min(Math.max(params.limit ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
 
-  const { pipeline } = buildSearchPipeline({
-    freeText: parsed.freeText,
-    locality,
-    pincode,
-    categoryId: categoryId?.toHexString(),
-    cursor: params.cursor,
-    limit,
-  });
+  const isGeoMode = typeof params.lat === "number" && typeof params.lng === "number";
+
+  const { pipeline } = isGeoMode
+    ? buildGeoSearchPipeline({
+        lat: params.lat!,
+        lng: params.lng!,
+        radiusMeters: (params.radiusKm ?? DEFAULT_RADIUS_KM) * 1000,
+        freeText: parsed.freeText,
+        locality,
+        pincode,
+        categoryId: categoryId?.toHexString(),
+        cursor: params.cursor,
+        limit,
+      })
+    : buildSearchPipeline({
+        freeText: parsed.freeText,
+        locality,
+        pincode,
+        categoryId: categoryId?.toHexString(),
+        cursor: params.cursor,
+        limit,
+      });
 
   const places = await getPlacesCollection();
-  const docs = (await places.aggregate(pipeline).toArray()) as RankedPlaceDoc[];
+  const docs = (await places.aggregate(pipeline).toArray()) as (RankedPlaceDoc | GeoPlaceDoc)[];
 
   const hasMore = docs.length > limit;
   const pageDocs = hasMore ? docs.slice(0, limit) : docs;
@@ -90,7 +119,13 @@ export async function searchPlaces(params: SearchPlacesParams): Promise<SearchPl
 
   const last = pageDocs[pageDocs.length - 1];
   const nextCursor =
-    hasMore && last ? encodeCursor({ rankScore: last.rankScore, id: last._id.toHexString() }) : null;
+    hasMore && last
+      ? encodeCursor(
+          isGeoMode
+            ? { field: "distanceMeters", value: (last as GeoPlaceDoc).distanceMeters, id: last._id.toHexString() }
+            : { field: "rankScore", value: (last as RankedPlaceDoc).rankScore, id: last._id.toHexString() },
+        )
+      : null;
 
   return { items, nextCursor };
 }

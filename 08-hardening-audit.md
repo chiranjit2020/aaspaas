@@ -21,7 +21,7 @@ added this document — see the M6 commit for the diff.
 | 7 | Abuse via volume | ✅ | Full §2.1 tier set wired in M5 — see §2 below for the one interpretation call it required. |
 | 8 | Bad input reaching the DB | ✅ | Every route that reads a JSON body validates it with a zod `safeParse` before touching anything — audited all 11 body-reading routes, zero gaps. Every query-param route (`/api/search`, `/api/places` GET) goes through `searchQuerySchema`. Dynamic route params (`[id]`, `[username]`) aren't zod objects (there's only ever one field), but every mutating route checks `ObjectId.isValid(id)` before using it, which is the right-sized validation for a single path segment. |
 | 9 | Moderation privilege escalation | ✅ | `assertModerator()` re-fetches the user from the DB on every call — audited all six `/api/moderation/*` routes (queue, approve, reject, edits decision, reports resolve, watchlist), all six call it, none trust the JWT's roles claim. Every decision (including the M5 watchlist dismiss/remove) writes to `moderation_actions`. |
-| 10 | PII exposure | ✅ | Registration collects exactly displayName/username/email/password — no phone/DOB/address for the *contributor* (a place's own business phone is a different, non-personal field). Grepped every API-facing serializer and route for `.email` — the only two hits are `toUserProfile` (used solely by `GET /api/users/me`, the user's own profile) and the registration/login flows' own responses to the account holder. `PlaceSummary`/`PlaceDetail`/`PublicProfile` carry no email and no raw lat/lng (`PlaceDetail.mapQuery` is text-only — see its own doc comment from M2). |
+| 10 | PII exposure | ✅ | Registration collects exactly displayName/username/email/password — no phone/DOB/address for the *contributor* (a place's own business phone is a different, non-personal field). Grepped every API-facing serializer and route for `.email` — the only two hits are `toUserProfile` (used solely by `GET /api/users/me`, the user's own profile) and the registration/login flows' own responses to the account holder. `PlaceSummary`/`PlaceDetail`/`PublicProfile` carry no email and no raw lat/lng (`PlaceDetail.mapQuery` is text-only — see its own doc comment from M2). **Phase 4 addendum: this last clause is no longer true — see §4's addendum below.** |
 | 11 | Secrets leakage | ⚠️ → ✅ | **Found a real one**: `.env.example` held a live MongoDB Atlas connection string (username + password), byte-identical to the real `.env.local`. `.gitignore`'s blanket `.env*` meant it was never actually committed — confirmed with `git ls-files` / `git log --all -- .env.example` — so there's no leaked commit to purge from history. But the file existing at all with a real secret in it was a live landmine (the whole point of a `.env.example` is that it's the file people paste around, screenshot, or eventually `git add -f`). **Fixed**: rewrote it with placeholders only, and added `!.env.example` to `.gitignore` so it's *actually* tracked going forward, matching what the README already told people to `cp`. **Recommended**: rotate the Atlas password (`NUP3nXKenxOpj1AZ`) as a precaution — it was never in git, but it's been sitting in a plaintext file, and rotating a cluster password is cheap while a hypothetical future leak is not. See §7 below for the Vercel side of this row. |
 | 12 | Supply-chain drift | ⚠️ → ✅ | `package-lock.json` was already committed ✅. `npm audit --audit-level=high` reports **0 vulnerabilities** right now. Neither an `npm audit` CI step nor a Dependabot config existed — **fixed**: added an audit step to `.github/workflows/ci.yml` (high/critical only; moderate-and-below is usually unfixable transitive-dev noise that trains you to ignore the step) and `.github/dependabot.yml` for both the npm and github-actions ecosystems, weekly. |
 
@@ -86,6 +86,24 @@ raw coordinates; `UserProfile` (which does carry email) is only ever returned
 from `GET /api/users/me` and login/register — a user seeing their own email is
 not a PII exposure. No route was found returning a raw Mongo document via
 spread (`{...doc}`) anywhere — every response is built field-by-field.
+
+### Phase 4 addendum (Geo/Maps)
+
+This M6 finding is superseded, deliberately: as of Phase 4,
+`PlaceSummary`/`PlaceDetail` now carry raw, unrounded coordinates
+(`location: { lat, lng }`), added to power near-me radius search and
+embedded Leaflet maps. This narrows the audit's original claim about
+coordinates only — every other conclusion above (no email/PII beyond
+`UserProfile`'s own-account case, no raw-document spreads) still holds.
+
+The reasoning for why this is fine, not a regression: a business's address
+is the product's core public data, not personal data about a private
+individual, and was already effectively reachable through the "Directions"/
+"View on map" links every place page has shown since M2 (those geocode
+`mapQuery`'s text to essentially the same point). See
+`src/types/domain.ts`'s `PlaceSummary.location` doc comment for the
+canonical, current rationale — that comment is the source of truth if this
+decision is ever revisited, not this addendum.
 
 ## 5. Vercel env-var scoping — a checklist, not a verified fact
 
