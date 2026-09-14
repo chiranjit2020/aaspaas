@@ -147,7 +147,7 @@ export function SearchExperience({
             <Badge
               key={cat.id}
               variant={active ? "default" : "outline"}
-              className="cursor-pointer gap-1.5 px-3 py-1.5 text-sm font-normal"
+              className="cursor-pointer gap-1.5 px-3 py-1.5 text-sm font-normal duration-150 hover:scale-105 active:scale-95"
               onClick={() => setActiveCategory(active ? undefined : cat.slug)}
             >
               <CategoryIcon name={cat.icon} className="size-3.5" />
@@ -178,8 +178,19 @@ export function SearchExperience({
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((place) => (
-            <PlaceCard key={place.id} place={place} />
+          {results.map((place, i) => (
+            // Staggered per-card reveal instead of the whole grid appearing
+            // at once — capped at the first 8 so a 30-result page doesn't
+            // end with a visibly-lagging last row. Keyed on place.id so
+            // React remounts (and thus re-plays the animation) exactly when
+            // the actual result set changes, e.g. a new search.
+            <div
+              key={place.id}
+              className="animate-fade-up"
+              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+            >
+              <PlaceCard place={place} />
+            </div>
           ))}
         </div>
       )}

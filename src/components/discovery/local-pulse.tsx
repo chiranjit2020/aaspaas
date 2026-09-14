@@ -11,7 +11,7 @@ import type { LocalPulse as LocalPulseData } from "@/lib/discovery/getLocalPulse
  */
 export function LocalPulse({ pulse }: { pulse: LocalPulseData }) {
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card className="border-primary/20 bg-primary/5 transition-shadow duration-200 hover:shadow-md hover:shadow-primary/10">
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-1.5 flex items-center gap-2 text-primary">
@@ -28,10 +28,10 @@ export function LocalPulse({ pulse }: { pulse: LocalPulseData }) {
         </div>
         <Link
           href={`/?q=${encodeURIComponent(pulse.locality)}`}
-          className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+          className="group flex shrink-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
         >
           Explore {pulse.locality}
-          <ArrowRight className="size-4" />
+          <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
         </Link>
       </CardContent>
     </Card>

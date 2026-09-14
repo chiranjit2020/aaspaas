@@ -85,6 +85,57 @@
     mask-image: linear-gradient(to bottom, black, black 45%, transparent 90%);
     -webkit-mask-image: linear-gradient(to bottom, black, black 45%, transparent 90%);
   }
+
+  /* Entrance reveals — a "smoky" blur that resolves into focus while the
+     element rises slightly, vs. a plain fade for lighter-weight repeated
+     elements (a page's worth of place cards shouldn't all pay the blur
+     cost). Both are "animate ... both" so the element holds its start/end
+     state outside the animation's active range instead of flashing
+     unstyled content, then flashing back afterward. */
+  @keyframes blur-fade-up {
+    from {
+      opacity: 0;
+      filter: blur(14px);
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+  .animate-blur-fade-up {
+    animation: blur-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .animate-fade-up {
+    animation: fade-up 0.4s ease-out both;
+  }
+}
+
+/* Respect the OS-level "reduce motion" setting once, globally, rather than
+   special-casing every animation/transition utility added above and below
+   this comment — this is the one place that needs to know the preference
+   exists. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @theme inline {

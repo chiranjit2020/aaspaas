@@ -46,24 +46,26 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             that forcing it onto a single mobile line (the old clamp()/
             nowrap treatment) would mean an unreadably tiny font. Normal
             wrapping is the right call at this length. */}
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        <h1 className="animate-blur-fade-up text-3xl font-bold tracking-tight sm:text-4xl">
           Discover what&rsquo;s around you. Add what&rsquo;s missing.
         </h1>
-        <p className="max-w-xl text-muted-foreground">
+        <p className="animate-blur-fade-up max-w-xl text-muted-foreground [animation-delay:150ms]">
           Find local shops, restaurants, services and more &mdash; or add a place
           to help your neighbourhood grow.
         </p>
       </div>
 
-      <SearchExperience
-        initialQuery={q}
-        initialCategorySlug={category}
-        initialResults={initialResults.items}
-        initialNextCursor={initialResults.nextCursor}
-        topCategories={topCategories}
-        discoveryCategories={discoveryCategories}
-        localPulse={localPulse}
-      />
+      <div className="animate-blur-fade-up [animation-delay:280ms]">
+        <SearchExperience
+          initialQuery={q}
+          initialCategorySlug={category}
+          initialResults={initialResults.items}
+          initialNextCursor={initialResults.nextCursor}
+          topCategories={topCategories}
+          discoveryCategories={discoveryCategories}
+          localPulse={localPulse}
+        />
+      </div>
     </div>
   );
 }

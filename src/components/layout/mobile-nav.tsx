@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, Plus, ShieldCheck, User, LogIn, UserPlus } from "lucide-react";
+import { Menu, X, Plus, ShieldCheck, User, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
 import {
@@ -32,11 +32,19 @@ export function MobileNav({ isLoggedIn, username, isModerator }: MobileNavProps)
       <Button
         variant="ghost"
         size="icon-sm"
-        className="sm:hidden"
-        onClick={() => setOpen(true)}
-        aria-label="Open menu"
+        className="relative sm:hidden"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={open ? "Close menu" : "Open menu"}
       >
-        <Menu />
+        {/* Hamburger morphs into an X instead of a static icon swap — each
+            icon rotates+fades through the same spot rather than one just
+            appearing as the other disappears. */}
+        <Menu
+          className={`transition-all duration-200 ${open ? "scale-50 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100"}`}
+        />
+        <X
+          className={`absolute transition-all duration-200 ${open ? "scale-100 rotate-0 opacity-100" : "scale-50 -rotate-90 opacity-0"}`}
+        />
       </Button>
       <SheetContent side="right">
         <SheetHeader>

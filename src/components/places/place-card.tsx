@@ -13,7 +13,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
     // visually on top per normal stacking order and its own links — the
     // contributor link below — remain independently clickable without
     // nesting an <a> inside an <a>.
-    <Card className="relative h-full transition-colors hover:border-primary/50 hover:bg-accent/40">
+    <Card className="relative h-full transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:bg-accent/40 hover:shadow-lg hover:shadow-black/20">
       <Link href={`/places/${place.slug}`} className="absolute inset-0" aria-label={place.name} />
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <div>

@@ -26,9 +26,12 @@ export function DiscoverySurface({ categories }: { categories: DiscoveryCategory
           <Link
             key={cat.id}
             href={`/?category=${cat.slug}`}
-            className="flex flex-col items-center gap-2 rounded-xl border border-border/60 px-3 py-4 text-center transition-colors hover:border-primary/50 hover:bg-accent/40"
+            className="group flex flex-col items-center gap-2 rounded-xl border border-border/60 px-3 py-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent/40 hover:shadow-md hover:shadow-black/20"
           >
-            <CategoryIcon name={cat.icon} className="size-5 text-primary" />
+            <CategoryIcon
+              name={cat.icon}
+              className="size-5 text-primary transition-transform duration-200 group-hover:scale-110"
+            />
             <span className="text-sm font-medium">{cat.name}</span>
             <span className="text-xs font-medium text-warning">+{cat.newCount} new</span>
           </Link>
