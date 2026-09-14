@@ -271,50 +271,8 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
       <div className="space-y-1.5">
         <Label>Location</Label>
 
-        {coordsSource === "auto" && form.lat && form.lng ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-white/15 bg-background px-3 py-2.5 text-sm">
-            <span className="flex items-center gap-2 text-foreground">
-              <CheckCircle2 className="size-4 text-primary" />
-              Location captured
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setCoordsSource("manual");
-                setManualEntry(true);
-              }}
-              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            >
-              Adjust manually
-            </button>
-          </div>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={useCurrentLocation}
-            disabled={locating}
-          >
-            {locating ? <Spinner /> : <LocateFixed />}
-            {locating ? "Getting your location…" : "Use my current location"}
-          </Button>
-        )}
-
-        {locationError && <p className="text-xs text-destructive">{locationError}</p>}
-
-        {!manualEntry && coordsSource !== "auto" && (
-          <button
-            type="button"
-            onClick={() => setManualEntry(true)}
-            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Enter coordinates manually instead
-          </button>
-        )}
-
-        {manualEntry && (
-          <div className="space-y-1.5 pt-1">
+        {manualEntry ? (
+          <div className="space-y-1.5">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="lat">Latitude</Label>
@@ -349,11 +307,56 @@ export function AddPlaceForm({ categoryGroups }: { categoryGroups: CategoryGroup
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Open the place on a map, then copy the latitude/longitude from the URL.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Open the place on a map, then copy the latitude/longitude from the URL.
+              </p>
+              <button
+                type="button"
+                onClick={() => setManualEntry(false)}
+                className="shrink-0 pl-3 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Use current location instead
+              </button>
+            </div>
           </div>
+        ) : coordsSource === "auto" && form.lat && form.lng ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-white/15 bg-background px-3 py-2.5 text-sm">
+            <span className="flex items-center gap-2 text-foreground">
+              <CheckCircle2 className="size-4 text-primary" />
+              Location captured
+            </span>
+            <button
+              type="button"
+              onClick={() => setManualEntry(true)}
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Adjust manually
+            </button>
+          </div>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={useCurrentLocation}
+              disabled={locating}
+            >
+              {locating ? <Spinner /> : <LocateFixed />}
+              {locating ? "Getting your location…" : "Use my current location"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setManualEntry(true)}
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Enter coordinates manually instead
+            </button>
+          </>
         )}
+
+        {locationError && <p className="text-xs text-destructive">{locationError}</p>}
       </div>
 
       {error && (
