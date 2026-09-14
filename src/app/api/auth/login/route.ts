@@ -59,6 +59,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!user.emailVerified) {
+    return NextResponse.json(
+      { error: "Please verify your email before logging in." },
+      { status: 403 },
+    );
+  }
+
   const now = new Date();
   await users.updateOne({ _id: user._id }, { $set: { lastLoginAt: now } });
 
