@@ -35,8 +35,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid query", issues: parsed.issues }, { status: 400 });
   }
 
-  const { district, locality, pincode, category, cursor, limit } = parsed.data;
-  const result = await searchPlaces({ district, locality, pincode, categorySlug: category, cursor, limit });
+  const { district, locality, pincode, category, cursor, limit, lat, lng, radiusKm } = parsed.data;
+  const result = await searchPlaces({
+    district,
+    locality,
+    pincode,
+    categorySlug: category,
+    cursor,
+    limit,
+    lat,
+    lng,
+    radiusKm,
+  });
   return NextResponse.json(result);
 }
 

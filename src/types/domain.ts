@@ -212,7 +212,18 @@ export interface PlaceSummary {
   phone?: string;
   usefulCount: number;
   notUsefulCount: number;
+  /** Populated only by a near-me ($geoNear) search; meters, rounded. */
   distanceMeters?: number;
+  /**
+   * Raw, unrounded coordinates — deliberately public as of Phase 4
+   * (Geo/Maps). A business's address is already public product data,
+   * effectively reachable via the "Directions"/"View on map" links every
+   * place page has shown since M2; this reverses the earlier "never expose
+   * raw lat/lng" stance recorded in this file's git history and
+   * 08-hardening-audit.md's PII-exposure row, which now carries a dated
+   * addendum pointing back here.
+   */
+  location: { lat: number; lng: number };
   /**
    * Null only if createdBy points at an account that no longer exists. On
    * PlaceSummary (search results/cards) deliberately excludes reputationLevel
@@ -227,11 +238,11 @@ export interface PlaceDetail extends PlaceSummary {
   description?: string;
   address?: string;
   /**
-   * No raw lat/lng here deliberately — exact coordinates aren't exposed
-   * publicly until the geo/maps phase (Phase 4). mapQuery is a plain text
-   * string (name + locality/district) that a maps provider can geocode
-   * itself, good enough for a "Directions"/"View on map" link without
-   * publishing precise coordinates.
+   * Kept as a convenience text fallback for the "Directions"/"View on map"
+   * external links (a maps provider geocodes it directly) — not a privacy
+   * boundary. As of Phase 4 (Geo/Maps), PlaceSummary.location (inherited
+   * here) already carries this place's raw coordinates publicly; see that
+   * field's doc comment for why that's now deliberate.
    */
   mapQuery: string;
   verificationCount: number;

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, LocateFixed, List, Map as MapIcon, X } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { PlaceCard } from "@/components/places/place-card";
 import { CategoryIcon } from "@/components/places/category-icon";
 import { DiscoverySurface } from "@/components/discovery/discovery-surface";
 import { LocalPulse } from "@/components/discovery/local-pulse";
+import { ResultsMap } from "@/components/map/results-map";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import type { CategorySummary } from "@/lib/db/serialize";
 import type { PlaceSummary } from "@/types/domain";
 import type { DiscoveryCategory } from "@/lib/discovery/getDiscoverySurface";
@@ -34,15 +36,31 @@ interface SearchResponse {
   nextCursor: string | null;
 }
 
+/** Radius presets for near-me search — errand-scale, not whole-district (see buildQuery.ts's MAX_RADIUS_KM). */
+const RADIUS_PRESETS_KM = [2, 5, 10, 25];
+const DEFAULT_RADIUS_KM = 5;
+
+interface GeoSearchParams {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+}
+
 async function fetchResults(
   q: string,
   category: string | undefined,
   cursor?: string,
+  geo?: GeoSearchParams,
 ): Promise<SearchResponse> {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (category) params.set("category", category);
   if (cursor) params.set("cursor", cursor);
+  if (geo) {
+    params.set("lat", String(geo.lat));
+    params.set("lng", String(geo.lng));
+    params.set("radiusKm", String(geo.radiusKm));
+  }
   const res = await fetch(`/api/search?${params.toString()}`);
   if (!res.ok) throw new Error("Search request failed");
   return res.json();
@@ -69,12 +87,17 @@ export function SearchExperience({
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
+  const geo = useGeolocation();
+  const nearMe = Boolean(geo.coords);
+
   const isFirstRun = useRef(true);
   // Discovery Surface / Local Pulse are browse aids ("something to browse
   // even when they aren't searching" — review2.md) -- once there's an active
-  // query or category filter, the person is looking for something specific,
-  // so give the results grid the full attention instead.
-  const isBrowsing = !query.trim() && !activeCategory;
+  // query, category filter, or near-me search, the person is looking for
+  // something specific, so give the results grid the full attention instead.
+  const isBrowsing = !query.trim() && !activeCategory && !nearMe;
 
   useEffect(() => {
     if (isFirstRun.current) {
@@ -82,10 +105,14 @@ export function SearchExperience({
       return;
     }
 
+    const geoParams: GeoSearchParams | undefined = geo.coords
+      ? { lat: geo.coords.lat, lng: geo.coords.lng, radiusKm }
+      : undefined;
+
     const handle = setTimeout(() => {
       setLoading(true);
       setError(null);
-      fetchResults(query, activeCategory)
+      fetchResults(query, activeCategory, undefined, geoParams)
         .then((data) => {
           setResults(data.items);
           setNextCursor(data.nextCursor);
@@ -93,6 +120,11 @@ export function SearchExperience({
         .catch(() => setError("Couldn't load results. Try again."))
         .finally(() => setLoading(false));
 
+      // Deliberately don't put lat/lng/radiusKm in the URL the way q/category
+      // are synced — the *place's* coordinates are public product data as of
+      // Phase 4, but the *searcher's* precise location landing in a
+      // shareable/bookmarkable URL would be a real privacy leak this phase
+      // doesn't sign up for. Near-me stays ephemeral client state only.
       const params = new URLSearchParams();
       if (query) params.set("q", query);
       if (activeCategory) params.set("category", activeCategory);
@@ -104,19 +136,30 @@ export function SearchExperience({
 
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, activeCategory]);
+  }, [query, activeCategory, geo.coords, radiusKm]);
 
   async function handleLoadMore() {
     if (!nextCursor) return;
     setLoadingMore(true);
     try {
-      const data = await fetchResults(query, activeCategory, nextCursor);
+      const geoParams: GeoSearchParams | undefined = geo.coords
+        ? { lat: geo.coords.lat, lng: geo.coords.lng, radiusKm }
+        : undefined;
+      const data = await fetchResults(query, activeCategory, nextCursor, geoParams);
       setResults((prev) => [...prev, ...data.items]);
       setNextCursor(data.nextCursor);
     } catch {
       setError("Couldn't load more results. Try again.");
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  function toggleNearMe() {
+    if (nearMe) {
+      geo.reset();
+    } else {
+      geo.locate();
     }
   }
 
@@ -140,7 +183,7 @@ export function SearchExperience({
         </InputGroupAddon>
       </InputGroup>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {topCategories.map((cat) => {
           const active = activeCategory === cat.slug;
           return (
@@ -155,7 +198,70 @@ export function SearchExperience({
             </Badge>
           );
         })}
+
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+
+        <Button
+          type="button"
+          variant={nearMe ? "default" : "outline"}
+          size="sm"
+          className="gap-1.5"
+          onClick={toggleNearMe}
+          disabled={geo.locating}
+          aria-pressed={nearMe}
+        >
+          {geo.locating ? <Spinner /> : <LocateFixed className="size-3.5" />}
+          Near me
+        </Button>
+
+        <div className="ml-auto flex items-center gap-1 rounded-lg border border-border p-0.5">
+          <Button
+            type="button"
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="icon-sm"
+            aria-pressed={viewMode === "list"}
+            aria-label="List view"
+            onClick={() => setViewMode("list")}
+          >
+            <List className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "map" ? "secondary" : "ghost"}
+            size="icon-sm"
+            aria-pressed={viewMode === "map"}
+            aria-label="Map view"
+            onClick={() => setViewMode("map")}
+          >
+            <MapIcon className="size-3.5" />
+          </Button>
+        </div>
       </div>
+
+      {geo.error && (
+        <p className="flex items-center gap-1.5 text-sm text-destructive">
+          {geo.error.message}
+          <button type="button" onClick={geo.reset} className="text-muted-foreground hover:text-foreground">
+            <X className="size-3.5" />
+          </button>
+        </p>
+      )}
+
+      {nearMe && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <span>Within</span>
+          {RADIUS_PRESETS_KM.map((km) => (
+            <Badge
+              key={km}
+              variant={radiusKm === km ? "default" : "outline"}
+              className="cursor-pointer px-2.5 py-1 font-normal"
+              onClick={() => setRadiusKm(km)}
+            >
+              {km} km
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {isBrowsing && (localPulse || discoveryCategories.length > 0) && (
         <div className="space-y-6">
@@ -176,6 +282,8 @@ export function SearchExperience({
         <p className="py-12 text-center text-muted-foreground">
           No places found yet. Try a different search &mdash; or be the first to add one.
         </p>
+      ) : viewMode === "map" ? (
+        <ResultsMap places={results} userCoords={geo.coords} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((place, i) => (
@@ -206,3 +314,4 @@ export function SearchExperience({
     </div>
   );
 }
+

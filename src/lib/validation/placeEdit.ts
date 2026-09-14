@@ -9,11 +9,11 @@ import { z } from "zod";
  * bigger, rarer correction than the wording/contact-detail fixes this flow
  * targets — a clean follow-up later, not a reason to widen this milestone).
  *
- * lat/lng are left out because PlaceDetail never exposes the place's current
- * coordinates to the client (see toPlaceDetail's mapQuery) — there is no
- * "old" value to diff a correction against without either leaking raw
- * coordinates publicly or asking the user to blindly overwrite them. That
- * stays reserved for the geo/maps phase.
+ * lat/lng are left out here not because coordinates are hidden — Phase 4
+ * (Geo/Maps) made PlaceDetail.location public — but because moving a pin is
+ * a bigger, rarer correction than the wording/contact-detail fixes this flow
+ * targets, same reasoning as categorySlug above. A clean follow-up later,
+ * not part of Phase 4's decided scope.
  */
 export const placeEditInputSchema = z
   .object({

@@ -13,6 +13,7 @@ import { ContributorAvatar } from "@/components/places/contributor-avatar";
 import { UsefulVoteButtons } from "@/components/places/useful-vote-buttons";
 import { SuggestEditSheet } from "@/components/places/suggest-edit-sheet";
 import { ReportSheet } from "@/components/places/report-sheet";
+import { PlaceMiniMap } from "@/components/map/place-mini-map";
 
 interface PlacePageProps {
   params: Promise<{ id: string }>;
@@ -38,9 +39,10 @@ export default async function PlacePage({ params }: PlacePageProps) {
   const isOwnSubmission = Boolean(session && place.contributor?.username === session.username);
   const loginRedirectTo = `/places/${place.slug}`;
 
-  // Text-based (name + address), not the stored lat/lng — exact coordinates
-  // aren't exposed publicly until the geo/maps phase (Phase 4). The maps
-  // provider geocodes the text itself.
+  // Text-based (name + address) rather than place.location — a maps
+  // provider geocodes this itself, which is a fine fallback for an outbound
+  // link even though (as of Phase 4) the exact coordinates are also
+  // available on `place.location` and used directly by the embedded map below.
   const mapQuery = encodeURIComponent(place.mapQuery);
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`;
   const mapViewUrl = `https://www.openstreetmap.org/search?query=${mapQuery}`;
@@ -71,6 +73,8 @@ export default async function PlacePage({ params }: PlacePageProps) {
             {place.locality}, {place.district} &mdash; {place.pincode}
           </span>
         </div>
+
+        <PlaceMiniMap lat={place.location.lat} lng={place.location.lng} name={place.name} />
 
         {place.description && <p className="text-sm leading-relaxed">{place.description}</p>}
 
