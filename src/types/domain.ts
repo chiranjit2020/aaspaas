@@ -227,9 +227,13 @@ export interface PlaceSummary {
   /**
    * Null only if createdBy points at an account that no longer exists. On
    * PlaceSummary (search results/cards) deliberately excludes reputationLevel
-   * — every account is "newcomer" until M4's reputation calculation exists
-   * for real, and showing a level that never changes would look like a
-   * broken leveling system rather than an honest one.
+   * — originally because every account was "newcomer" until M4's reputation
+   * calculation existed for real, and showing a level that never changed
+   * would look like a broken leveling system rather than an honest one.
+   * lib/trust/reputation.ts computes real levels now (2026-09-15), so that
+   * reasoning no longer applies — whether to surface a level badge on
+   * search result cards is now an open product decision, not blocked by
+   * missing data.
    */
   contributor: { username: string; displayName: string } | null;
 }
@@ -273,13 +277,19 @@ export interface UserProfile {
  * The PUBLIC contributor profile (`GET /api/users/[username]`, `/u/[username]`).
  * Deliberately minimal, per review.md's Part 15 and the design-system
  * philosophy's own rule against fake gamification: no email, no
- * reputationLevel (every account is still "newcomer" — M4's reputation
- * calculation doesn't exist yet, and showing a level that's identical for
- * every contributor would look like a broken leveling system), no XP, no
- * badges. placesAddedCount is a live count of *published* places only, not
- * the stats.placesAdded submission counter — a public "accomplishment"
- * number should reflect what actually made it into the directory, not raw
- * submission attempts (pending or rejected ones included).
+ * reputationLevel, no XP, no badges. placesAddedCount is a live count of
+ * *published* places only, not the stats.placesAdded submission counter —
+ * a public "accomplishment" number should reflect what actually made it
+ * into the directory, not raw submission attempts (pending or rejected ones
+ * included).
+ *
+ * reputationLevel's exclusion originally had a second reason beyond the
+ * anti-gamification rule: every account was "newcomer" forever (M4's
+ * reputation calculation didn't exist), so showing a level would have
+ * looked like a broken leveling system. lib/trust/reputation.ts computes
+ * real levels now (2026-09-15) — that specific reason is gone, but the
+ * anti-gamification rule stands on its own regardless, so nothing here
+ * needs to change unless a deliberate product decision adds a level badge.
  */
 export interface PublicProfile {
   displayName: string;

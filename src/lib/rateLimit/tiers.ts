@@ -9,12 +9,23 @@
  * Contributor+: 25/day"). The middle tier's condition is read from context:
  * "Verified, Local Explorer+" is the *complement* of the bottom tier's two
  * red flags (unverified OR <7 days old) — i.e. verified AND >=7 days old —
- * rather than a strict gate on reputationLevel, which no milestone through
- * M4 actually computes (every account is still "newcomer"; see review.md's
- * explicit deferral and the M4 commit notes on why that wasn't faked). The
- * reputationLevel-gated top tier is wired up for real and will simply start
- * applying once a future milestone computes reputation levels — this isn't
- * dead code, it's just waiting on data that doesn't exist yet.
+ * rather than a strict gate on reputationLevel.
+ *
+ * That was originally because no milestone through M4 computed a real
+ * reputationLevel at all (every account sat at "newcomer" forever). As of
+ * 2026-09-15 (see lib/trust/reputation.ts) reputation levels ARE real and do
+ * move — but this middle tier deliberately still uses the age/verified
+ * proxy rather than switching to a `reputationLevel === "local_explorer"`
+ * gate: doing so would instantly change who qualifies for standard vs.
+ * restricted limits for every existing account the moment reputation
+ * computation shipped, which is exactly the kind of surprise behavior
+ * change a rate-limit tier shouldn't get as a side effect of an unrelated
+ * feature. Revisiting the middle tier's condition is a deliberate call to
+ * make later, not a bug to fix now.
+ *
+ * The top (`trusted`) tier IS reputationLevel-gated, and was always wired up
+ * for real — it started actually selecting real users the moment reputation
+ * computation shipped, no change needed here.
  */
 import type { ReputationLevel } from "@/types/domain";
 

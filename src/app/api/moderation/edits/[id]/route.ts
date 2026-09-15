@@ -8,6 +8,7 @@ import { getUsersCollection } from "@/lib/db/models/user";
 import { getModerationActionsCollection } from "@/lib/db/models/moderationAction";
 import { editDecisionSchema } from "@/lib/validation/editDecision";
 import { applyPlaceEditChanges } from "@/lib/places/diffPlaceEdit";
+import { recomputeReputation } from "@/lib/trust/reputation";
 
 /**
  * POST /api/moderation/edits/[id] — approve or reject a proposed edit.
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const users = await getUsersCollection();
     await users.updateOne({ _id: edit.userId }, { $inc: { "stats.correctionsMade": 1 } });
+    await recomputeReputation(edit.userId);
   }
 
   const moderationActions = await getModerationActionsCollection();

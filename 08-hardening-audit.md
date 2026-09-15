@@ -34,11 +34,17 @@ One interpretation call, unchanged since M5 and re-confirmed here: §2.1 only gi
 numbers for the bottom tier ("Unverified / <7 days old") and the top tier
 ("Trusted Contributor+"). The middle tier ("Verified, Local Explorer+") is read as
 the literal complement of the bottom tier's two red flags — verified AND ≥7 days
-old — rather than a strict `reputationLevel` gate, because no milestone through M5
-actually computes reputation levels (every account is still `newcomer`; this was a
-deliberate call in M4 against fake gamification, not an oversight). The
-`reputationLevel`-gated top tier is real code, not a stub — it'll simply start
-selecting real users once a future milestone computes levels honestly.
+old — rather than a strict `reputationLevel` gate. That was true through M6
+because no milestone computed reputation levels at all (every account sat at
+`newcomer` forever, a deliberate M4 call against fake gamification, not an
+oversight). **Update, 2026-09-15:** `lib/trust/reputation.ts` now computes real
+reputation levels, recomputed on every place approval/rejection, edit approval,
+and useful vote (see `REPORT.md` for the formula and its rationale). The
+`reputationLevel`-gated top (`trusted`) tier immediately started selecting real
+users the moment that shipped — no code change needed there, exactly as this
+section predicted. The middle tier's age/verified proxy was deliberately left
+as-is rather than switched to a reputation gate now that one exists — see the
+comment in `lib/rateLimit/tiers.ts` for why.
 
 **"Tune rate limits based on real usage"** — this item can't actually be done yet.
 There is no real usage; the numbers in §2.1 are the roadmap's original estimates,
@@ -153,11 +159,10 @@ No paid Atlas tier is assumed here — this is the free-tier-compatible plan:
   five call sites into one helper with no behavior change is exactly the
   kind of change to make when the *next* ownership-sensitive route is added,
   not speculatively now.
-- **Did not implement `reputationLevel` computation** to fully "real-ize" the
-  rate-limit tiers — this was already explicitly deferred in M4 for good
-  reason (no formula exists anywhere in the planning docs) and M6 is a
-  hardening pass, not a new-feature milestone. Noted again here so it doesn't
-  get lost.
+- ~~**Did not implement `reputationLevel` computation**~~ — true at the time
+  this pass was written (M6), and correctly left for a later, dedicated
+  feature milestone rather than snuck into a hardening pass. Done as of
+  2026-09-15: see `lib/trust/reputation.ts` and the §2 update above.
 - **Did not add photo-upload XSS mitigations** — there's no photo upload
   feature yet to mitigate anything on.
 - **Did not "tune" rate limits with real numbers** — see §2. There's no real

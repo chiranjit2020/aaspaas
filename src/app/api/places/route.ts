@@ -11,6 +11,7 @@ import { makeUniquePlaceSlug } from "@/lib/places/slugify";
 import { findPossibleDuplicates } from "@/lib/trust/duplicateDetection";
 import { scorePlaceSubmission } from "@/lib/trust/spamScore";
 import { isCooldownActive, cooldownRemainingMs, SPAM_REJECTION_COOLDOWN_HOURS } from "@/lib/trust/cooldown";
+import { recomputeReputation } from "@/lib/trust/reputation";
 import { resolveSubmissionTier, SUBMISSION_LIMITS, ONE_DAY_MS } from "@/lib/rateLimit/tiers";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { getClientIp } from "@/lib/http/clientIp";
@@ -183,8 +184,18 @@ export async function POST(request: NextRequest) {
   if (routing.status === "rejected") {
     await users.updateOne(
       { _id: userId },
-      { $set: { submissionCooldownUntil: new Date(now.getTime() + SPAM_REJECTION_COOLDOWN_HOURS * 60 * 60 * 1000) } },
+      {
+        $set: { submissionCooldownUntil: new Date(now.getTime() + SPAM_REJECTION_COOLDOWN_HOURS * 60 * 60 * 1000) },
+        // Bug fix (found while wiring up reputation, 2026-09-15): this branch
+        // never incremented rejectedSubmissions — only the moderator-driven
+        // reject-from-queue route did. That silently weakened
+        // computeSpamScore's own scoreRejectedSubmissions signal (it reads
+        // this exact field) for anyone who was ever auto-rejected, and would
+        // have done the same to reputation's rejection penalty below.
+        $inc: { "stats.rejectedSubmissions": 1 },
+      },
     );
+    await recomputeReputation(userId);
     return NextResponse.json(
       {
         id: doc._id.toHexString(),

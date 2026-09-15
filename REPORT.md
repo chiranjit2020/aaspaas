@@ -44,10 +44,14 @@ logic doesn't). `[ ]` = not started.
   Phase 7 (monetization), Phase 8 (scale-out infra) — these were always
   "later," and nothing in V1 blocks them (that's by design, see §5.6).
 - **Real gaps inside "done" milestones** worth knowing about: no photo upload
-  (Cloudinary was speced, never built), reputation levels never actually
-  compute (every account is permanently `"newcomer"`), no end-to-end
-  (Playwright) tests despite the SDLC plan calling for 2–3, and `README.md`'s
-  status line is stale (says Phase 4 "not yet started" — it now is).
+  (Cloudinary was speced, never built), no end-to-end (Playwright) tests
+  despite the SDLC plan calling for 2–3, and `README.md`'s status line is
+  stale (says Phase 4 "not yet started" — it now is).
+- **2026-09-15 addition:** reputation levels now actually compute (they
+  didn't when this report was first written a few hours earlier — see §2's
+  M4 entry and §4.5). Whether to surface a level badge on public profiles or
+  search cards is a deliberate, still-open product decision, not blocked by
+  missing data anymore.
 
 ---
 
@@ -108,14 +112,26 @@ logic doesn't). `[ ]` = not started.
 - [x] Denormalized `stats` counters on `users` (placesAdded, correctionsMade,
       reportsFiled, usefulVotesReceived, rejectedSubmissions, ...), updated on
       every relevant event
-- [~] **Reputation levels** — the enum exists
-      (`newcomer → local_explorer → community_scout → trusted_contributor →
-      local_guide`) and is read in several places (rate-limit tier,
-      spam-score adjustment), but **nothing ever promotes a user out of
-      `newcomer`**. This was a deliberate, documented deferral (see
-      `src/lib/rateLimit/tiers.ts`'s own comment), not an oversight — but it
-      means the "trusted contributor gets a faster track" story is currently
-      inert for every real account.
+- [x] **Reputation levels** — `src/lib/trust/reputationScoring.ts` (pure
+      formula) + `src/lib/trust/reputation.ts` (DB wrapper). Built
+      2026-09-15, since no formula for this existed anywhere in the planning
+      docs (M4 explicitly deferred it — see `08-hardening-audit.md` §7). A
+      deterministic point score — published places (4pts) + approved edits
+      (2pts) + log-scaled useful votes received, minus rejected submissions
+      (−6pts) and reports against the user's own places (−4pts) — gated by
+      both a minimum score *and* a minimum account-tenure per level, with
+      the top two tiers additionally requiring a clean (zero-rejection)
+      record. Recomputed on every event that moves one of those signals:
+      place approve/reject, edit approve, useful vote
+      (`src/app/api/moderation/places/[id]/{approve,reject}`,
+      `.../moderation/edits/[id]`, `.../places/[id]/useful`). The
+      previously-inert `trusted` rate-limit tier and spam-score reputation
+      discount now apply for real, with no code change needed in either —
+      they were always reading the real field, it just never moved before.
+      Found and fixed a real bug along the way: the spam-score auto-reject
+      path in `POST /api/places` never incremented
+      `stats.rejectedSubmissions`, silently weakening both the existing
+      spam-score risk signal and (would have) this new formula.
 
 ### M5 — Spam-score gating
 - [x] `lib/trust/spamScoring.ts` (pure scorer, 0–100) +
@@ -447,18 +463,49 @@ form components rather than importing the schema directly on the client
 (worth checking if you want a "don't repeat validation rules" cleanup
 later).
 
+### 3.10 Reputation engine *(added 2026-09-15)*
+
+Same pure-scorer/DB-wrapper split as spam scoring:
+`lib/trust/reputationScoring.ts` (pure, unit-tested) computes a point score
+and a level from a plain input object; `lib/trust/reputation.ts`
+(`recomputeReputation(userId)`) gathers that input from the DB and writes
+the level back if it changed.
+
+```
+score = publishedPlaces*4 + approvedEdits*2 + ln(usefulVotesReceived+1)*3
+        - rejectedSubmissions*6 - reportsAgainstOwnPlaces*4
+```
+
+`publishedPlaces` is a **live count** (`places.countDocuments({createdBy,
+status: "published"})`), not the `stats.placesAdded` counter — that counter
+increments on every submission attempt including pending/rejected ones, and
+reputation is explicitly about accuracy, not volume (`03-community-and-
+contributors.md`: "a contributor who adds 20 excellent shops should be more
+trusted than someone who adds 2,000 garbage listings"). Each level also
+gates on a minimum account-tenure (so one lucky day can't vault a new
+account to the top) and, for the top two tiers, a hard zero-rejections
+requirement — a high score can't buy back trust the way it can buy back
+rank in a leaderboard.
+
+`recomputeReputation` isn't triggered by a cron job or a hook — it's called
+explicitly at the four places one of its inputs can change:
+`POST /api/moderation/places/[id]/approve`, `.../reject`,
+`POST /api/moderation/edits/[id]` (on approve), and
+`POST /api/places/[id]/useful`. Nothing else needed to change:
+`lib/rateLimit/tiers.ts`'s `trusted` submission tier and
+`spamScoring.ts`'s `reputationAdjustment` discount were always reading the
+real `users.reputationLevel` field — they'd just never seen it move before.
+
 ---
 
 ## 4. Known gaps, drift, and things worth understanding as *decisions*, not bugs
 
-- **Reputation levels never compute.** Every account is `"newcomer"`
-  forever. The rate-limit "trusted contributor gets 25/day" tier and the
-  spam-score reputation discount both *read* `reputationLevel`, but nothing
-  *writes* it except at registration. This is documented as deliberate (see
-  `lib/rateLimit/tiers.ts`'s comment), not hidden — but it means two
-  "finished" features (M5's tiered limits, M2's trust discount) are
-  currently only exercised by test fixtures that hand-set a reputation
-  level, never by real user behavior.
+- ~~**Reputation levels never compute.**~~ Fixed 2026-09-15 — see §3.10.
+  One related gap still open: a report resolved as `"removed"` doesn't
+  itself move any signal the reputation formula reads (only the report
+  existing does, via `reportsAgainstOwnPlaces`) — there's no "places removed
+  after publication" counter yet. A minor, known asymmetry, not an
+  oversight.
 - **No photo upload.** Speced (`place_photos` collection,
   `POST /api/places/[id]/photos`, Cloudinary), never built. No
   `lib/storage/`, no route, no `<PhotoUpload>` component.
@@ -573,6 +620,7 @@ file" pointers.
 | Auth end to end | `src/lib/auth/{jwt,session,tokens,password}.ts` |
 | Search end to end | `src/lib/search/{parseQuery,buildQuery,rank,service}.ts` |
 | Spam/trust scoring | `src/lib/trust/{spamScoring,spamScore,duplicateScoring,duplicateDetection}.ts` |
+| Reputation scoring | `src/lib/trust/{reputationScoring,reputation}.ts` (§3.10) |
 | Moderation | `src/lib/moderation/getModerationQueue.ts`, `src/app/api/moderation/**` |
 | Rate limiting | `src/lib/rateLimit/{index,tiers}.ts` |
 | Geo/maps | `src/hooks/use-geolocation.ts`, `src/components/map/`, `buildGeoSearchPipeline` in `buildQuery.ts` |
