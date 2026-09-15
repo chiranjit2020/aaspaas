@@ -126,17 +126,17 @@ describe("POST /api/places — auth protection", () => {
 });
 
 describe("POST /api/places — contributor association", () => {
-  it("derives createdBy from the session; a clean submission from an established account auto-publishes", async () => {
+  it("derives createdBy from the session; a clean submission still waits as pending for admin approval", async () => {
     const res = await POST(postRequest(PLACE_INPUT, sessionCookie));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.status).toBe("published");
+    expect(body.status).toBe("pending");
 
     const { getPlacesCollection } = await import("@/lib/db/models/place");
     const places = await getPlacesCollection();
     const doc = await places.findOne({ _id: new ObjectId(body.id) });
     expect(doc?.createdBy?.equals(userId)).toBe(true);
-    expect(doc?.status).toBe("published");
+    expect(doc?.status).toBe("pending");
   });
 
   it("ignores a client-supplied createdBy — the session always wins", async () => {

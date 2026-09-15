@@ -26,11 +26,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 /**
  * PATCH /api/places/[id] — propose an edit ("suggest a correction").
- * spamScore.ts routes it per §2.2, same as a new place submission but onto
- * place_edits' narrower status enum: low risk auto-approves (the change
- * applies immediately), medium/unscored-differently-for-edits risk goes to
- * the moderation queue as `pending`, and the worst tier auto-rejects with
- * the same account-level submission cooldown a rejected place gets.
+ * spamScore.ts still scores it per §2.2, but as of 2026-09-15 an edit is
+ * never auto-applied: every proposal lands as `pending` in the moderation
+ * queue and waits for POST /api/moderation/edits/[id], except the worst
+ * tier, which auto-rejects with the same account-level submission cooldown
+ * a rejected place gets — that blocks the edit outright rather than
+ * skipping review.
  *
  * Only accepts the place's own _id, not its slug — the client already has
  * the resolved id from GET /api/places/[id]'s response by the time it's

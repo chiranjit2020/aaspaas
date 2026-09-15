@@ -149,14 +149,14 @@ describe("PATCH /api/places/[id] — propose an edit", () => {
     expect(res.status).toBe(404);
   });
 
-  it("records only the changed fields, and a clean low-risk edit auto-applies immediately", async () => {
+  it("records only the changed fields, and a clean low-risk edit still waits for admin approval", async () => {
     const res = await PATCH(
       patchRequest({ phone: "9831111111", locality: "Habra", reason: "number changed" }, sessionCookie),
       { params: Promise.resolve({ id: placeId.toHexString() }) },
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.status).toBe("approved");
+    expect(body.status).toBe("pending");
 
     const { getPlaceEditsCollection } = await import("@/lib/db/models/placeEdit");
     const placeEdits = await getPlaceEditsCollection();
@@ -170,12 +170,12 @@ describe("PATCH /api/places/[id] — propose an edit", () => {
     const { getPlacesCollection } = await import("@/lib/db/models/place");
     const places = await getPlacesCollection();
     const place = await places.findOne({ _id: placeId });
-    expect(place?.phone).toBe("9831111111"); // applied immediately — low enough risk to auto-approve
+    expect(place?.phone).toBe("9830000000"); // NOT applied yet — awaiting moderator approval
 
     const { getUsersCollection } = await import("@/lib/db/models/user");
     const users = await getUsersCollection();
     const editor = await users.findOne({ _id: editorId });
-    expect(editor?.stats.correctionsMade).toBeGreaterThan(0);
+    expect(editor?.stats.correctionsMade).toBe(0); // only increments on actual approval
   });
 });
 
@@ -195,6 +195,6 @@ describe("GET /api/places/[id]/edits — edit history", () => {
     const body = await res.json();
     expect(body.items.length).toBeGreaterThan(0);
     expect(body.items[0].contributor.username).toBe("correctoruser");
-    expect(body.items[0].status).toBe("approved");
+    expect(body.items[0].status).toBe("pending");
   });
 });

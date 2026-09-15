@@ -56,11 +56,14 @@ export async function GET(request: NextRequest) {
  * "authenticated", not "email-verified"; the tiered submission limits in
  * §2.1 explicitly allow unverified accounts a (lower) daily quota).
  *
- * Status is no longer always `pending` — spamScore.ts routes it per §2.2:
- * low risk auto-publishes, medium risk publishes onto the moderator
- * watchlist, high risk goes to the moderation queue, and the worst tier is
- * rejected outright with a submission cooldown. The score itself never
- * bans/suspends an account — only a moderator action does that.
+ * Status is always `pending` unless the submission is bad enough to be
+ * auto-rejected — spamScore.ts still scores every submission (§2.2's
+ * thresholds), but as of 2026-09-15 the auto-publish and watchlist-publish
+ * bands no longer skip review: every place waits for an explicit moderator
+ * approve via POST /api/moderation/places/[id]/approve. Only the worst
+ * tier is routed automatically, and only to `rejected` (with a submission
+ * cooldown) — never to `published`. The score itself never bans/suspends an
+ * account — only a moderator action does that.
  */
 export async function POST(request: NextRequest) {
   const session = await getCurrentUser(request);
