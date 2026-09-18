@@ -62,11 +62,26 @@
     var(--brand-purple) 55%,
     var(--brand-blue) 100%
   );
+  /* Sampled directly from public/brand/logo-text.png's wordmark (top ->
+     bottom) — the same two-stop blue used on the logo itself, not a
+     new invented pair. */
+  --brand-cta-blue-start: #08aaf9;
+  --brand-cta-blue-end: #306bf2;
+  --brand-cta-gradient: linear-gradient(
+    180deg,
+    var(--brand-cta-blue-start) 0%,
+    var(--brand-cta-blue-end) 100%
+  );
 }
 
 @layer utilities {
   .bg-brand-gradient {
     background-image: var(--brand-gradient);
+  }
+  /* CTA buttons (Button's "default" variant) — the logo's own blue
+     gradient, not the multi-color brand gradient above. */
+  .bg-cta-gradient {
+    background-image: var(--brand-cta-gradient);
   }
   .text-brand-gradient {
     background-image: var(--brand-gradient);
