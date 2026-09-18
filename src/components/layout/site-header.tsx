@@ -82,9 +82,10 @@ export async function SiteHeader() {
             of an always-visible Add Place CTA is that it doesn't cost an
             extra tap through a menu to reach. */}
         <div className="flex items-center gap-1 sm:hidden">
-          <Button asChild variant="ghost" size="icon-sm">
-            <Link href="/add-place" aria-label="Add a place">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/add-place">
               <Plus />
+              Add place
             </Link>
           </Button>
           <MobileNav
