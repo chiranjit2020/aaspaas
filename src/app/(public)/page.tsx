@@ -46,7 +46,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             that forcing it onto a single mobile line (the old clamp()/
             nowrap treatment) would mean an unreadably tiny font. Normal
             wrapping is the right call at this length. */}
-        <h1 className="animate-blur-fade-up text-3xl font-bold tracking-tight sm:text-4xl">
+        <h1 className="animate-blur-fade-up text-3xl font-normal tracking-tight sm:text-4xl">
           <em>Discover</em> what&rsquo;s around you. <em>Add</em> what&rsquo;s <em>missing</em>.
         </h1>
         <p className="animate-blur-fade-up max-w-xl text-muted-foreground [animation-delay:150ms]">
