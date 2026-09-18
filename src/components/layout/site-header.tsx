@@ -59,7 +59,7 @@ export async function SiteHeader() {
                 </Button>
               )}
               <Link
-                href={`/u/${session.username}`}
+                href="/dashboard"
                 className="hidden text-sm text-muted-foreground hover:text-foreground sm:inline"
               >
                 @{session.username}
