@@ -14,6 +14,10 @@ const manrope = Manrope({
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair-display",
   subsets: ["latin"],
+  // next/font/google only loads the "normal" style by default — with no
+  // italic face at all, <em> (used in the homepage hero) had nothing to
+  // render but a synthesized/fallback face, which is what read as bold.
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
