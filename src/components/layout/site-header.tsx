@@ -78,11 +78,21 @@ export async function SiteHeader() {
           )}
         </nav>
 
-        <MobileNav
-          isLoggedIn={Boolean(session)}
-          username={session?.username}
-          isModerator={Boolean(isModerator)}
-        />
+        {/* Kept outside the hamburger sheet on mobile too — the whole point
+            of an always-visible Add Place CTA is that it doesn't cost an
+            extra tap through a menu to reach. */}
+        <div className="flex items-center gap-1 sm:hidden">
+          <Button asChild variant="ghost" size="icon-sm">
+            <Link href="/add-place" aria-label="Add a place">
+              <Plus />
+            </Link>
+          </Button>
+          <MobileNav
+            isLoggedIn={Boolean(session)}
+            username={session?.username}
+            isModerator={Boolean(isModerator)}
+          />
+        </div>
       </div>
     </header>
   );

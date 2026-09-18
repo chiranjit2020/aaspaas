@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Plus, ShieldCheck, User, LogIn, UserPlus } from "lucide-react";
+import { Menu, X, ShieldCheck, User, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
 import {
@@ -52,13 +52,6 @@ export function MobileNav({ isLoggedIn, username, isModerator }: MobileNavProps)
         </SheetHeader>
 
         <nav className="flex flex-col gap-1 px-4">
-          <Button asChild variant="ghost" className="justify-start" onClick={() => setOpen(false)}>
-            <Link href="/add-place">
-              <Plus />
-              Add Place
-            </Link>
-          </Button>
-
           {isLoggedIn ? (
             <>
               {isModerator && (
