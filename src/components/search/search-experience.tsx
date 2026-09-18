@@ -165,7 +165,11 @@ export function SearchExperience({
 
   return (
     <div className="space-y-6">
-      <InputGroup className="h-12 border-transparent bg-card shadow-lg shadow-black/40 ring-4 ring-foreground/15 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-foreground/30">
+      {/* !-forced: InputGroup's own base classes ship a `dark:bg-input/30` rule
+          that outranks a plain `bg-white` on specificity alone in dark mode —
+          without !important it silently no-ops and this stays whatever the
+          component's default dark background is. */}
+      <InputGroup className="h-14 !border-0 !bg-white shadow-2xl shadow-black/50 has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-primary/40">
         <InputGroupAddon>
           <Search className="text-warning" />
         </InputGroupAddon>
@@ -173,12 +177,12 @@ export function SearchExperience({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a place, category, locality or PIN&hellip;"
-          className="text-base placeholder:text-sm"
+          className="text-base text-neutral-900 placeholder:text-sm placeholder:text-neutral-500"
           aria-label="Search places"
         />
         <InputGroupAddon align="inline-end">
           <div className="flex size-4 items-center justify-center">
-            {loading && <Spinner />}
+            {loading && <Spinner className="text-neutral-500" />}
           </div>
         </InputGroupAddon>
       </InputGroup>
