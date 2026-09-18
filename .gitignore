@@ -30,12 +30,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — .env.example is the one deliberate exception: it's a
-# placeholder-only template meant to be committed so new contributors know
-# what to set (see README's "Getting started"). Never put a real value in
-# it — .env* below still blocks every actual .env.local/.env file.
+# env files — .env.example and .env.test.example are the deliberate
+# exceptions: placeholder-only templates meant to be committed so new
+# contributors know what to set (see README's "Getting started" and "End-to-
+# end tests"). Never put a real value in either — .env* below still blocks
+# every actual .env.local/.env/.env.test file.
 .env*
 !.env.example
+!.env.test.example
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # vercel
 .vercel

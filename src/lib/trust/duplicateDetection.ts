@@ -41,7 +41,7 @@ export async function findPossibleDuplicates(
   const candidates = await places
     .find({
       locality: input.locality,
-      status: { $in: ["published", "pending", "flagged"] },
+      status: { $in: ["published", "pending"] },
     })
     .limit(500)
     .toArray();

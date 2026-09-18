@@ -59,6 +59,10 @@ export const SUBMISSION_LIMITS: Record<SubmissionTier, number> = {
 export const EDIT_DAILY_LIMIT = 10;
 export const VOTE_DAILY_LIMIT = 20;
 export const REPORT_DAILY_LIMIT = 5;
+export const PHOTO_UPLOAD_DAILY_LIMIT = 10;
+
+/** Per-place ceiling on pending+approved photos — keeps a gallery from being spam-flooded. */
+export const MAX_PHOTOS_PER_PLACE = 12;
 
 export const ANONYMOUS_READ_LIMIT_PER_MINUTE = 60;
 export const ONE_DAY_MS = 24 * 60 * 60 * 1000;

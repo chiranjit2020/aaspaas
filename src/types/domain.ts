@@ -90,7 +90,7 @@ export interface CategoryDoc {
   synonyms: string[];
 }
 
-export type PlaceStatus = "pending" | "published" | "flagged" | "rejected" | "removed";
+export type PlaceStatus = "pending" | "published" | "rejected" | "removed";
 
 export interface GeoPoint {
   type: "Point";
@@ -194,7 +194,7 @@ export interface ModerationActionDoc {
   _id: ObjectId;
   actorId: ObjectId;
   action: string;
-  targetType: "place" | "place_edit" | "report" | "user";
+  targetType: "place" | "place_edit" | "report" | "place_photo" | "user";
   targetId: ObjectId;
   notes?: string;
   createdAt: Date;

@@ -36,7 +36,7 @@ async function countRecentSubmissions(userId: ObjectId): Promise<number> {
 async function countSamePhone(phone: string | undefined): Promise<number> {
   if (!phone) return 0;
   const places = await getPlacesCollection();
-  return places.countDocuments({ phone, status: { $in: ["published", "pending", "flagged"] } });
+  return places.countDocuments({ phone, status: { $in: ["published", "pending"] } });
 }
 
 async function countReportsAgainstUser(userId: ObjectId): Promise<number> {
@@ -56,7 +56,7 @@ async function checkGeoInconsistent(locality: string, pincode: string): Promise<
   const places = await getPlacesCollection();
   const knownPincodes = await places.distinct("pincode", {
     locality,
-    status: { $in: ["published", "pending", "flagged"] },
+    status: { $in: ["published", "pending"] },
   });
   return knownPincodes.length > 0 && !knownPincodes.includes(pincode);
 }
