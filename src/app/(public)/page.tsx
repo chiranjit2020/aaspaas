@@ -47,7 +47,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             nowrap treatment) would mean an unreadably tiny font. Normal
             wrapping is the right call at this length. */}
         <h1 className="animate-blur-fade-up text-3xl font-bold tracking-tight sm:text-4xl">
-          Discover what&rsquo;s around you. Add what&rsquo;s missing.
+          <em>Discover</em> what&rsquo;s around you. <em>Add</em> what&rsquo;s <em>missing</em>.
         </h1>
         <p className="animate-blur-fade-up max-w-xl text-muted-foreground [animation-delay:150ms]">
           Find local shops, restaurants, services and more &mdash; or add a place

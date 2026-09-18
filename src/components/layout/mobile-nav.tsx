@@ -63,7 +63,7 @@ export function MobileNav({ isLoggedIn, username, isModerator }: MobileNavProps)
                 </Button>
               )}
               <Button asChild variant="ghost" className="justify-start" onClick={() => setOpen(false)}>
-                <Link href={`/u/${username}`}>
+                <Link href="/dashboard">
                   <User />@{username}
                 </Link>
               </Button>
