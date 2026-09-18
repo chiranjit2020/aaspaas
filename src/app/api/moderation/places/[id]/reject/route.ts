@@ -6,6 +6,7 @@ import { assertModerator } from "@/lib/auth/requireModerator";
 import { getPlacesCollection } from "@/lib/db/models/place";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { getModerationActionsCollection } from "@/lib/db/models/moderationAction";
+import { recomputeReputation } from "@/lib/trust/reputation";
 
 const rejectBodySchema = z.object({
   notes: z.string().trim().max(500).optional(),
@@ -48,6 +49,9 @@ export async function POST(
   if (result.createdBy) {
     const users = await getUsersCollection();
     await users.updateOne({ _id: result.createdBy }, { $inc: { "stats.rejectedSubmissions": 1 } });
+    // A rejection can pull an account back down a level, not just block it
+    // from going up — recompute now that rejectedSubmissions just moved.
+    await recomputeReputation(result.createdBy);
   }
 
   const moderationActions = await getModerationActionsCollection();

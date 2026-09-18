@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MapPin, Phone, ArrowLeft, Navigation } from "lucide-react";
 import { getPlaceById } from "@/lib/places/getPlaceById";
 import { getUserVoteForPlace } from "@/lib/places/getUserVoteForPlace";
+import { getApprovedPhotos } from "@/lib/places/getApprovedPhotos";
 import { getCurrentUserFromCookieStore } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,8 @@ import { ContributorAvatar } from "@/components/places/contributor-avatar";
 import { UsefulVoteButtons } from "@/components/places/useful-vote-buttons";
 import { SuggestEditSheet } from "@/components/places/suggest-edit-sheet";
 import { ReportSheet } from "@/components/places/report-sheet";
+import { PhotoUpload } from "@/components/places/photo-upload";
+import { PhotoGallery } from "@/components/places/photo-gallery";
 import { PlaceMiniMap } from "@/components/map/place-mini-map";
 
 interface PlacePageProps {
@@ -36,6 +39,7 @@ export default async function PlacePage({ params }: PlacePageProps) {
 
   const session = await getCurrentUserFromCookieStore();
   const yourVote = session ? await getUserVoteForPlace(place.id, session.sub) : null;
+  const photos = await getApprovedPhotos(place.id);
   const isOwnSubmission = Boolean(session && place.contributor?.username === session.username);
   const loginRedirectTo = `/places/${place.slug}`;
 
@@ -77,6 +81,13 @@ export default async function PlacePage({ params }: PlacePageProps) {
         <PlaceMiniMap lat={place.location.lat} lng={place.location.lng} name={place.name} />
 
         {place.description && <p className="text-sm leading-relaxed">{place.description}</p>}
+
+        <PhotoGallery photos={photos} />
+        <PhotoUpload
+          placeId={place.id}
+          isAuthenticated={Boolean(session)}
+          loginRedirectTo={loginRedirectTo}
+        />
 
         <div className="flex flex-wrap gap-3 pt-2">
           {place.phone && (

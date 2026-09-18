@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, X, MapPin, TriangleAlert, Pencil, Flag, Eye, ShieldAlert } from "lucide-react";
+import Image from "next/image";
+import { Check, X, MapPin, TriangleAlert, Pencil, Flag, Eye, ShieldAlert, Camera } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import type {
   EditQueueItem,
   ModerationQueue as ModerationQueueData,
   ModerationQueueItem,
+  PhotoQueueItem,
   ReportQueueItem,
   WatchlistItem,
 } from "@/lib/moderation/getModerationQueue";
@@ -56,6 +58,7 @@ export function ModerationQueue({ initialQueue }: { initialQueue: ModerationQueu
   const [places, setPlaces] = useState(initialQueue.places);
   const [edits, setEdits] = useState(initialQueue.edits);
   const [reports, setReports] = useState(initialQueue.reports);
+  const [photos, setPhotos] = useState(initialQueue.photos);
   const [watchlist, setWatchlist] = useState(initialQueue.watchlist);
 
   return (
@@ -64,6 +67,7 @@ export function ModerationQueue({ initialQueue }: { initialQueue: ModerationQueu
         <TabsTrigger value="places">Places ({places.length})</TabsTrigger>
         <TabsTrigger value="edits">Edits ({edits.length})</TabsTrigger>
         <TabsTrigger value="reports">Reports ({reports.length})</TabsTrigger>
+        <TabsTrigger value="photos">Photos ({photos.length})</TabsTrigger>
         <TabsTrigger value="watchlist">Watchlist ({watchlist.length})</TabsTrigger>
       </TabsList>
       <TabsContent value="places" className="pt-4">
@@ -74,6 +78,9 @@ export function ModerationQueue({ initialQueue }: { initialQueue: ModerationQueu
       </TabsContent>
       <TabsContent value="reports" className="pt-4">
         <ReportsTab items={reports} setItems={setReports} />
+      </TabsContent>
+      <TabsContent value="photos" className="pt-4">
+        <PhotosTab items={photos} setItems={setPhotos} />
       </TabsContent>
       <TabsContent value="watchlist" className="pt-4">
         <WatchlistTab items={watchlist} setItems={setWatchlist} />
@@ -265,6 +272,98 @@ function EditsTab({
 
                 <p className="text-xs text-muted-foreground">
                   Suggested by <Contributor contributor={item.contributor} />
+                </p>
+
+                {errors[item.id] && <p className="text-sm text-destructive">{errors[item.id]}</p>}
+
+                <div className="flex gap-3 pt-1">
+                  <Button
+                    onClick={() => handleDecision(item.id, "approve")}
+                    disabled={pendingId === item.id}
+                    className="flex-1"
+                  >
+                    {pendingId === item.id ? <Spinner /> : <Check />}
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleDecision(item.id, "reject")}
+                    disabled={pendingId === item.id}
+                    className="flex-1"
+                  >
+                    {pendingId === item.id ? <Spinner /> : <X />}
+                    Reject
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PhotosTab({
+  items,
+  setItems,
+}: {
+  items: PhotoQueueItem[];
+  setItems: React.Dispatch<React.SetStateAction<PhotoQueueItem[]>>;
+}) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  async function handleDecision(id: string, decision: "approve" | "reject") {
+    setPendingId(id);
+    setErrors((prev) => ({ ...prev, [id]: "" }));
+    try {
+      const res = await fetch(`/api/moderation/photos/${id}/${decision}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "That didn't work. Try again.");
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : "That didn't work. Try again.",
+      }));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">No photos waiting for review.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground">
+        {items.length} photo{items.length === 1 ? "" : "s"} waiting for review, oldest first.
+      </p>
+      <ul className="space-y-4">
+        {items.map((item) => (
+          <li key={item.id}>
+            <Card>
+              <CardContent className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-1.5 font-semibold leading-snug">
+                    <Camera className="size-4 shrink-0 text-muted-foreground" />
+                    <Link href={`/places/${item.place.slug}`} className="hover:underline">
+                      {item.place.name}
+                    </Link>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {DATE_FORMAT.format(new Date(item.createdAt))}
+                  </span>
+                </div>
+
+                <div className="relative aspect-video overflow-hidden rounded-md bg-muted">
+                  <Image src={item.url} alt="" fill className="object-cover" />
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Uploaded by <Contributor contributor={item.contributor} />
                 </p>
 
                 {errors[item.id] && <p className="text-sm text-destructive">{errors[item.id]}</p>}

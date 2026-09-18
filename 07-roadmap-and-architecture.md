@@ -335,14 +335,32 @@ stuffing, known spam phrases — no ML needed for V1), reports filed against the
 reputation level (lowers risk), past rejected submissions, and locality/pincode
 geographic consistency.
 
-**Thresholds, and what they actually do to `places.status`:**
+**Thresholds, `routeBySpamScore`'s raw output, per `routeBySpamScore` in
+`spamScoring.ts` (unchanged — still what feeds the moderator's context and the
+watchlist/reject-cooldown machinery):**
 
 ```text
- 0–20   → status = published                (auto-publish)
-21–50   → status = published, flagged=true  (appears on a moderator watchlist)
-51–75   → status = pending                  (goes to the moderation queue)
-76–100  → status = rejected                 (submitter gets a 24–72h submission cooldown)
+ 0–20   → auto_publish
+21–50   → watchlist
+51–75   → pending_review
+76–100  → rejected_cooldown
 ```
+
+**What that outcome actually does to `places.status`, as of 2026-09-15 (product
+decision — publishing without an admin looking at it was flagged as a problem):**
+
+```text
+auto_publish / watchlist / pending_review → status = pending   (always waits for a moderator)
+rejected_cooldown                         → status = rejected  (submitter gets a 24–72h cooldown)
+```
+
+Every new place and every proposed edit now requires an explicit
+POST /api/moderation/places/[id]/approve or /api/moderation/edits/[id] before it's
+live or applied — the only thing the score still does automatically is block the
+worst tier outright (never publish it). The 0–20/21–50 auto-publish/watchlist bands
+described above are dead code paths for `places.status` today; `getModerationQueue`'s
+watchlist reader still exists (for anything published by other means, e.g. pre-policy
+data) but nothing currently produces new watchlist entries.
 
 One rule doesn't move, no matter how convenient it would be to skip it: **the score
 routes a submission. It never bans, suspends, or deletes an account.** That always

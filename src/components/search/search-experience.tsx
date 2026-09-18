@@ -279,7 +279,7 @@ export function SearchExperience({
           ))}
         </div>
       ) : results.length === 0 ? (
-        <p className="py-12 text-center text-muted-foreground">
+        <p className="py-12 text-center text-sm text-muted-foreground italic sm:text-base">
           No places found yet. Try a different search &mdash; or be the first to add one.
         </p>
       ) : viewMode === "map" ? (

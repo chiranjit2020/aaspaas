@@ -4,6 +4,7 @@ import { getCategoriesCollection } from "@/lib/db/models/category";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { getPlaceEditsCollection } from "@/lib/db/models/placeEdit";
 import { getReportsCollection } from "@/lib/db/models/report";
+import { getPlacePhotosCollection } from "@/lib/db/models/placePhoto";
 import type { PlaceEditDoc, ReportReason } from "@/types/domain";
 
 /**
@@ -51,6 +52,14 @@ export interface ReportQueueItem {
   contributor: { username: string; displayName: string } | null;
 }
 
+export interface PhotoQueueItem {
+  id: string;
+  url: string;
+  place: { id: string; name: string; slug: string };
+  createdAt: string;
+  contributor: { username: string; displayName: string } | null;
+}
+
 export interface WatchlistItem {
   id: string;
   name: string;
@@ -69,17 +78,19 @@ export interface ModerationQueue {
   places: ModerationQueueItem[];
   edits: EditQueueItem[];
   reports: ReportQueueItem[];
+  photos: PhotoQueueItem[];
   watchlist: WatchlistItem[];
 }
 
 export async function getModerationQueue(limit = 50): Promise<ModerationQueue> {
-  const [places, edits, reports, watchlist] = await Promise.all([
+  const [places, edits, reports, photos, watchlist] = await Promise.all([
     getPendingPlaces(limit),
     getPendingEdits(limit),
     getOpenReports(limit),
+    getPendingPhotos(limit),
     getWatchlist(limit),
   ]);
-  return { places, edits, reports, watchlist };
+  return { places, edits, reports, photos, watchlist };
 }
 
 async function getPendingPlaces(limit: number): Promise<ModerationQueueItem[]> {
@@ -184,6 +195,48 @@ async function getPendingEdits(limit: number): Promise<EditQueueItem[]> {
         changes: edit.changes,
         reason: edit.reason,
         createdAt: edit.createdAt.toISOString(),
+        contributor: contributor
+          ? { username: contributor.username, displayName: contributor.displayName }
+          : null,
+      };
+    });
+}
+
+async function getPendingPhotos(limit: number): Promise<PhotoQueueItem[]> {
+  const placePhotos = await getPlacePhotosCollection();
+  const pending = await placePhotos
+    .find({ moderationStatus: "pending" })
+    .sort({ uploadedAt: 1 })
+    .limit(limit)
+    .toArray();
+
+  if (pending.length === 0) return [];
+
+  const [places, users] = await Promise.all([getPlacesCollection(), getUsersCollection()]);
+  const placeIds = [...new Set(pending.map((p) => p.placeId.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+  const userIds = [...new Set(pending.map((p) => p.uploadedBy.toHexString()))].map(
+    (id) => new ObjectId(id),
+  );
+
+  const [placeDocs, userDocs] = await Promise.all([
+    places.find({ _id: { $in: placeIds } }, { projection: { name: 1, slug: 1 } }).toArray(),
+    users.find({ _id: { $in: userIds } }, { projection: { username: 1, displayName: 1 } }).toArray(),
+  ]);
+  const placesById = new Map(placeDocs.map((p) => [p._id.toHexString(), p]));
+  const usersById = new Map(userDocs.map((u) => [u._id.toHexString(), u]));
+
+  return pending
+    .filter((photo) => placesById.has(photo.placeId.toHexString())) // skip photos on a since-deleted place
+    .map((photo) => {
+      const place = placesById.get(photo.placeId.toHexString())!;
+      const contributor = usersById.get(photo.uploadedBy.toHexString());
+      return {
+        id: photo._id.toHexString(),
+        url: photo.url,
+        place: { id: place._id.toHexString(), name: place.name, slug: place.slug },
+        createdAt: photo.uploadedAt.toISOString(),
         contributor: contributor
           ? { username: contributor.username, displayName: contributor.displayName }
           : null,

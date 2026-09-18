@@ -6,6 +6,7 @@ import { getUsefulVotesCollection } from "@/lib/db/models/usefulVote";
 import { getUsersCollection } from "@/lib/db/models/user";
 import { usefulVoteInputSchema } from "@/lib/validation/usefulVote";
 import { computeVoteTransition } from "@/lib/trust/voteTransition";
+import { recomputeReputation } from "@/lib/trust/reputation";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { VOTE_DAILY_LIMIT, ONE_DAY_MS } from "@/lib/rateLimit/tiers";
 
@@ -102,6 +103,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       { _id: place.createdBy },
       { $inc: { "stats.usefulVotesReceived": transition.usefulVotesReceivedDelta } },
     );
+    await recomputeReputation(place.createdBy);
   }
 
   return NextResponse.json({

@@ -15,7 +15,6 @@ export const metadata: Metadata = { title: "Add a place — AasPaas" };
 const STATUS_LABEL: Record<PlaceStatus, string> = {
   pending: "Pending review",
   published: "Published",
-  flagged: "Flagged",
   rejected: "Rejected",
   removed: "Removed",
 };
@@ -23,7 +22,6 @@ const STATUS_LABEL: Record<PlaceStatus, string> = {
 const STATUS_CLASS: Record<PlaceStatus, string> = {
   pending: "", // default secondary look
   published: "bg-success/15 text-success",
-  flagged: "bg-warning/15 text-warning",
   rejected: "",
   removed: "",
 };
@@ -31,7 +29,6 @@ const STATUS_CLASS: Record<PlaceStatus, string> = {
 const STATUS_VARIANT: Record<PlaceStatus, "secondary" | "destructive"> = {
   pending: "secondary",
   published: "secondary",
-  flagged: "secondary",
   rejected: "destructive",
   removed: "destructive",
 };

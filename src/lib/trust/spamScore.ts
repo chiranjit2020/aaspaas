@@ -36,7 +36,7 @@ async function countRecentSubmissions(userId: ObjectId): Promise<number> {
 async function countSamePhone(phone: string | undefined): Promise<number> {
   if (!phone) return 0;
   const places = await getPlacesCollection();
-  return places.countDocuments({ phone, status: { $in: ["published", "pending", "flagged"] } });
+  return places.countDocuments({ phone, status: { $in: ["published", "pending"] } });
 }
 
 async function countReportsAgainstUser(userId: ObjectId): Promise<number> {
@@ -56,7 +56,7 @@ async function checkGeoInconsistent(locality: string, pincode: string): Promise<
   const places = await getPlacesCollection();
   const knownPincodes = await places.distinct("pincode", {
     locality,
-    status: { $in: ["published", "pending", "flagged"] },
+    status: { $in: ["published", "pending"] },
   });
   return knownPincodes.length > 0 && !knownPincodes.includes(pincode);
 }
@@ -89,16 +89,21 @@ async function gatherCommonSignals(user: WithId<UserDoc>): Promise<CommonSignals
   };
 }
 
-export type PlaceSubmissionRouting =
-  | { status: "published"; watchlisted: false }
-  | { status: "published"; watchlisted: true }
-  | { status: "pending"; watchlisted: false }
-  | { status: "rejected"; watchlisted: false };
+export type PlaceSubmissionRouting = { status: "pending" } | { status: "rejected" };
 
 /**
  * Scores a new place submission and works out what its `status` should be.
  * `possibleDuplicates` is the same result POST /api/places already computed
  * for the duplicate-warning flow — reused here instead of re-querying.
+ *
+ * Product decision (2026-09-15): §2.2's auto-publish and watchlist-publish
+ * bands are no longer honored for NEW places — every submission that isn't
+ * outright rejected lands in `pending` and waits for an explicit moderator
+ * approve/reject via POST /api/moderation/places/[id]/approve|reject. The
+ * score/reasons are still computed and stored on the doc so the moderator
+ * has real signal in the queue, and the worst-tier auto-reject (with
+ * cooldown) is untouched — that blocks publication rather than skipping
+ * review, so it doesn't reopen the "published without approval" gap.
  */
 export async function scorePlaceSubmission(params: {
   user: WithId<UserDoc>;
@@ -134,13 +139,7 @@ export async function scorePlaceSubmission(params: {
 
   const outcome = routeBySpamScore(result.score);
   const routing: PlaceSubmissionRouting =
-    outcome === "auto_publish"
-      ? { status: "published", watchlisted: false }
-      : outcome === "watchlist"
-        ? { status: "published", watchlisted: true }
-        : outcome === "pending_review"
-          ? { status: "pending", watchlisted: false }
-          : { status: "rejected", watchlisted: false };
+    outcome === "rejected_cooldown" ? { status: "rejected" } : { status: "pending" };
 
   return { result, routing };
 }
@@ -152,6 +151,11 @@ export type PlaceEditRouting = "approved" | "pending" | "rejected";
  * only make sense when a *new* place is being created, not when correcting
  * an already-vetted one — just the account-level risk factors plus
  * suspicious-text heuristics on whatever text the edit actually touches.
+ *
+ * Same 2026-09-15 product decision as scorePlaceSubmission above: an edit
+ * that isn't outright rejected always lands as `pending` and waits for a
+ * moderator via POST /api/moderation/edits/[id] — no more auto-apply for
+ * low-risk edits.
  */
 export async function scorePlaceEdit(params: {
   user: WithId<UserDoc>;
@@ -174,8 +178,7 @@ export async function scorePlaceEdit(params: {
   });
 
   const outcome = routeBySpamScore(result.score);
-  const routing: PlaceEditRouting =
-    outcome === "auto_publish" ? "approved" : outcome === "rejected_cooldown" ? "rejected" : "pending";
+  const routing: PlaceEditRouting = outcome === "rejected_cooldown" ? "rejected" : "pending";
 
   return { result, routing };
 }

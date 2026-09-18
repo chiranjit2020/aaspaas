@@ -56,6 +56,7 @@ the full register → verify → login flow locally.
 | `npm run create-indexes` | Creates all indexes from `07-roadmap-and-architecture.md` §1.4 |
 | `npm run seed` | Wipes/re-seeds `categories` + `places`; upserts 3 seed contributors in `users` (never wipes real accounts) |
 | `npm run make-admin -- <username>` | Grants ADMIN to an existing user — the only way in, no self-service UI |
+| `npm run test:e2e` | Playwright end-to-end flows (see "End-to-end tests" below) |
 
 Seed contributors (so every seeded place has a real `createdBy`, not `null`) log in
 with `priya_habra` / `rahul_ashoknagar` / `ananya_barasat` and the password
@@ -89,6 +90,25 @@ tests/unit/              unit tests for pure logic (search/ranking, validation, 
 tests/integration/       API routes exercised against a real mongodb-memory-server instance
 ```
 
+## End-to-end tests
+
+`tests/e2e/` covers the 3 flows named in `07-roadmap-and-architecture.md`
+§3's SDLC plan (anonymous search, register→add place→pending, report→
+moderation queue) with Playwright, driving a real `next build && next
+start` against a dedicated database — never `aaspaas_dev`.
+
+```bash
+cp .env.example .env.test   # then set MONGODB_DB_NAME=aaspaas_e2e
+npm run test:e2e
+```
+
+`tests/e2e/global-setup.ts` wipes and reseeds that database before each run
+— it refuses to run unless `MONGODB_DB_NAME` ends in `_e2e`, as a guard
+against ever pointing it at a real database. Runs on push to `main` (see
+`.github/workflows/e2e.yml`), not on every PR, per the SDLC plan's own
+"keep CI fast" guidance — `.github/workflows/ci.yml` (lint/typecheck/unit+
+integration tests/build) still gates every PR.
+
 ## Status
 
 M0 (scaffold + CI), M1 (data model, seed, read-only browse/search), M2 (auth,
@@ -96,5 +116,11 @@ add-place flow), M3 (duplicate detection, moderation queue), M4 (contributor
 stats, suggest-an-edit, reports, useful votes), M5 (spam-score gating, daily
 rate limits, submission cooldowns, the moderation watchlist) and M6 (pre-launch
 hardening pass) are done — see `08-hardening-audit.md` for what that pass found
-and fixed. That's the whole V1 build per `07-roadmap-and-architecture.md` §4;
-Phases 4+ (`07-roadmap-and-architecture.md` §5) are future work, not yet started.
+and fixed. That's the whole V1 build per `07-roadmap-and-architecture.md` §4.
+
+Phase 4 (geo/maps — browser geolocation, Leaflet, "near me" radius search)
+and photo upload (Cloudinary, moderated like every other place-facing
+submission) are also done, ahead of their originally-planned order. 3
+Playwright end-to-end flows exist (see above). Phases 5-8
+(`07-roadmap-and-architecture.md` §5 — business claiming, social/network,
+monetization, scale-out infra) remain future work, not started.

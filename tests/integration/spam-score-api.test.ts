@@ -4,11 +4,12 @@ import { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 
 /**
- * Exercises M5's actual DONE WHEN criteria end-to-end against a real
- * in-memory Mongo: "a rapid-fire new/unverified account gets auto-flagged
- * or rejected per the thresholds; a trusted contributor's clean submission
- * auto-publishes" — plus the submission cooldown and daily rate limit that
- * ride along with spam-score gating.
+ * Exercises spam-score gating end-to-end against a real in-memory Mongo.
+ * As of the 2026-09-15 policy change, a clean submission no longer
+ * auto-publishes — it still lands as `pending` and waits for a moderator,
+ * same as any other non-rejected submission. Only the worst tier is
+ * routed automatically, straight to `rejected` with a cooldown. Plus the
+ * submission cooldown and daily rate limit that ride along with gating.
  */
 let mongod: MongoMemoryServer;
 let POST: typeof import("@/app/api/places/route").POST;
@@ -110,7 +111,7 @@ afterAll(async () => {
 });
 
 describe("POST /api/places — spam-score gating (DONE WHEN scenarios)", () => {
-  it("auto-publishes a clean submission from a trusted contributor", async () => {
+  it("still holds a clean submission from a trusted contributor for admin approval", async () => {
     const { cookie } = await makeUser({
       username: "trusted1",
       emailVerified: true,
@@ -121,10 +122,10 @@ describe("POST /api/places — spam-score gating (DONE WHEN scenarios)", () => {
     const res = await POST(postRequest(uniquePlaceInput(), cookie));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.status).toBe("published");
+    expect(body.status).toBe("pending");
   });
 
-  it("auto-publishes a clean submission from an established, verified newcomer", async () => {
+  it("still holds a clean submission from an established, verified newcomer for admin approval", async () => {
     const { cookie } = await makeUser({
       username: "clean1",
       emailVerified: true,
@@ -134,7 +135,7 @@ describe("POST /api/places — spam-score gating (DONE WHEN scenarios)", () => {
     const res = await POST(postRequest(uniquePlaceInput(), cookie));
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.status).toBe("published");
+    expect(body.status).toBe("pending");
   });
 
   it("flags a brand-new unverified account's rapid-fire spammy submission (rejected) and applies a cooldown", async () => {
