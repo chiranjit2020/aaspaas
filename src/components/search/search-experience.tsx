@@ -165,7 +165,7 @@ export function SearchExperience({
 
   return (
     <div className="space-y-6">
-      <InputGroup className="h-12 border-transparent bg-card/60 ring-4 ring-foreground/15 backdrop-blur-md has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-foreground/30">
+      <InputGroup className="h-12 border-transparent bg-card shadow-lg shadow-black/40 ring-4 ring-foreground/15 has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-foreground/30">
         <InputGroupAddon>
           <Search className="text-warning" />
         </InputGroupAddon>
